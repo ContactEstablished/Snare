@@ -21,6 +21,12 @@
 
   <ItemGroup Label="Data">
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <!--
+      EF Core 10 still pulls SQLitePCLRaw.lib.e_sqlite3 2.1.11, which bundles a SQLite with CVE-2025-6965.
+      Snare.Library references this newer native build directly (its version is the bundled SQLite version).
+      Drop this once EF Core ships with a patched SQLite.
+    -->
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
   </ItemGroup>
 
   <!--
