@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Core stays platform-neutral: no project references, no Windows APIs. -->
+  <PropertyGroup>
+    <TargetFramework>$(SnareTargetFramework)</TargetFramework>
+  </PropertyGroup>
+
+</Project>

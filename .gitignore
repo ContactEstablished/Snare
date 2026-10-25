@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+TestResults/
+
+# IDEs
+.vs/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+.vscode/*
+!.vscode/extensions.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Bundled tools are downloaded locally and never committed
+tools/ffmpeg/*
+!tools/ffmpeg/README.md
+
+# Golden-image test output
+*.received.png

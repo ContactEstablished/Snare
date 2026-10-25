@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-targeted because OCR indexing uses Windows.Media.Ocr. -->
+  <PropertyGroup>
+    <TargetFramework>$(SnareWindowsTargetFramework)</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Snare.Core\Snare.Core.csproj" />
+    <ProjectReference Include="..\Snare.Rendering\Snare.Rendering.csproj" />
+  </ItemGroup>
+
+</Project>

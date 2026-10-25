@@ -1,0 +1,3 @@
+# Snare
+
+@AGENTS.md
