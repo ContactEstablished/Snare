@@ -40,7 +40,9 @@ jobs:
       - name: Test
         run: |
           dotnet test Snare.slnx --configuration Release --no-build 2>&1 | Tee-Object -FilePath test.log
-          if ($LASTEXITCODE -ne 0) {
+          $testExit = $LASTEXITCODE
+          Select-String -Path test.log -Pattern '(Passed!|Failed!) ' | ForEach-Object { Write-Output "::notice::$($_.Line.Trim())" }
+          if ($testExit -ne 0) {
             Select-String -Path test.log -Pattern '(: error |^\s*Failed |\[FAIL\]|Assert\.)' | ForEach-Object { $_.Line.Trim() } | Sort-Object -Unique | Select-Object -First 40 | ForEach-Object { Write-Output "::error::$_" }
             exit 1
           }
