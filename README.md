@@ -20,6 +20,8 @@ dotnet run --project src/Snare.App
 
 Snare starts in the system tray. Logs are written to `%LOCALAPPDATA%\Snare\logs`.
 
+The solution builds for x64 only, because ScreenRecorderLib is a native library. The exe is in `src\Snare.App\bin\x64\Debug\net10.0-windows10.0.22621.0\`.
+
 ## Projects
 
 | Project | Responsibility |
