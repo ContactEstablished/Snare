@@ -54,6 +54,32 @@ public class ScrollStitcherTests
     }
 
     [Fact]
+    public void AGradientNeverPassesForAScrollBack()
+    {
+        // Frame 900 shares no rows with frame 0, but both hold gradient "images", which
+        // normalized correlation alone scores as a near-perfect match.
+        var page = new SyntheticPage();
+        var stitcher = new ScrollStitcher();
+        stitcher.Add(page.Frame(0));
+
+        Assert.Equal(StitchOutcome.NoMatch, stitcher.Add(page.Frame(900)).Outcome);
+    }
+
+    [Fact]
+    public void LinesUpExactlyWhereTheStripFallsInAGradient()
+    {
+        // At 900 -> 1050 the lowest strip sits in a gradient block, which matches one row off.
+        var page = new SyntheticPage(pageHeight: 1400);
+        var stitcher = new ScrollStitcher();
+        foreach (var y in new[] { 0, 150, 300, 450, 600, 750, 900, 1050, 1100 })
+        {
+            stitcher.Add(page.Frame(y));
+        }
+
+        AssertSame(page.Expected(1100), stitcher.Compose());
+    }
+
+    [Fact]
     public void ToleratesGrabNoise()
     {
         var page = new SyntheticPage(seed: 11);

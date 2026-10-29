@@ -29,8 +29,8 @@ public sealed class ScrollStitcher
     /// <summary>The largest mean gray difference allowed over the whole overlap of a match.</summary>
     private const double OverlapTolerance = 6.0;
 
-    /// <summary>A template strip needs at least this gray standard deviation to be worth matching.</summary>
-    private const double MinTextureStdDev = 4.0;
+    /// <summary>A template strip needs at least this <see cref="EdgeStrength"/> to be worth matching.</summary>
+    private const double MinEdgeStrength = 2.0;
 
     private const int MinBand = 32;
 
@@ -188,14 +188,15 @@ public sealed class ScrollStitcher
         }
 
         var (foundTop, confidence) = FindStrip(previous, current, width, top, strip, bandTop, bandBottom);
+        var offset = top - foundTop;
         if (confidence < MinConfidence
             && TexturedStrip(previous, width, bandTop, bandBottom, strip, fromBottom: false) is { } upper)
         {
             // The bottom strip leaves the view when the page scrolls up; one from the top doesn't.
             var (upperFound, upperConfidence) = FindStrip(previous, current, width, upper, strip, bandTop, bandBottom);
-            if (upperConfidence >= MinConfidence && upperFound > upper)
+            if (upperConfidence >= MinConfidence)
             {
-                return (Drop(StitchOutcome.ScrolledBack, "Scrolled up; scroll back down to carry on.", upperConfidence), 0);
+                (offset, confidence) = (upper - upperFound, upperConfidence);
             }
         }
 
@@ -204,23 +205,34 @@ public sealed class ScrollStitcher
             return (Drop(StitchOutcome.NoMatch, "Couldn't line up that frame; scroll a little slower.", confidence), 0);
         }
 
-        var offset = top - foundTop;
-        if (offset == 0)
+        // The strip can match a row or two off where the page is smooth; the whole overlap can't.
+        var difference = double.MaxValue;
+        var best = offset;
+        for (var candidate = offset - 2; candidate <= offset + 2; candidate++)
+        {
+            var d = OverlapDifference(previous, current, width, bandTop, bandBottom, candidate);
+            if (d < difference)
+            {
+                (difference, best) = (d, candidate);
+            }
+        }
+
+        if (best == 0)
         {
             return (Drop(StitchOutcome.NoMovement, confidence: confidence), 0);
         }
 
-        if (offset < 0)
-        {
-            return (Drop(StitchOutcome.ScrolledBack, "Scrolled up; scroll back down to carry on.", confidence), 0);
-        }
-
-        if (OverlapDifference(previous, current, width, bandTop, bandBottom, offset) > OverlapTolerance)
+        if (difference > OverlapTolerance)
         {
             return (Drop(StitchOutcome.NoMatch, "That frame didn't line up cleanly (still drawing?); dropped it.", confidence), 0);
         }
 
-        return (new StitchResult(StitchOutcome.Appended, offset, confidence), footer);
+        if (best < 0)
+        {
+            return (Drop(StitchOutcome.ScrolledBack, "Scrolled up; scroll back down to carry on.", confidence), 0);
+        }
+
+        return (new StitchResult(StitchOutcome.Appended, best, confidence), footer);
     }
 
     /// <summary>Rows identical at the same position, from the top and from the bottom, each capped at 40%.</summary>
@@ -265,7 +277,7 @@ public sealed class ScrollStitcher
         var step = Math.Max(1, strip / 2);
         for (var top = fromBottom ? bandBottom - strip : bandTop; top >= bandTop && top <= bandBottom - strip; top += fromBottom ? -step : step)
         {
-            if (StdDev(gray, width, top, strip) >= MinTextureStdDev)
+            if (EdgeStrength(gray, width, top, strip) >= MinEdgeStrength)
             {
                 return top;
             }
@@ -274,21 +286,24 @@ public sealed class ScrollStitcher
         return null;
     }
 
-    private static double StdDev(byte[] gray, int width, int top, int rows)
+    /// <summary>
+    /// Mean difference between neighboring pixels (right and below). Text and borders score high;
+    /// blank space and smooth gradients, which match anywhere, score near zero.
+    /// </summary>
+    private static double EdgeStrength(byte[] gray, int width, int top, int rows)
     {
         long sum = 0;
-        long squares = 0;
-        var start = top * width;
-        var count = rows * width;
-        for (var i = start; i < start + count; i++)
+        for (var y = top; y < top + rows - 1; y++)
         {
-            int v = gray[i];
-            sum += v;
-            squares += v * v;
+            var row = y * width;
+            for (var x = 0; x < width - 1; x++)
+            {
+                int v = gray[row + x];
+                sum += Math.Abs(v - gray[row + x + 1]) + Math.Abs(v - gray[row + width + x]);
+            }
         }
 
-        var mean = (double)sum / count;
-        return Math.Sqrt(Math.Max(0, ((double)squares / count) - (mean * mean)));
+        return (double)sum / ((rows - 1) * (width - 1));
     }
 
     /// <summary>Where the strip at <paramref name="top"/> of <paramref name="previous"/> best matches inside the band of <paramref name="current"/>.</summary>
@@ -305,18 +320,21 @@ public sealed class ScrollStitcher
         return (bandTop + location.Y, double.IsFinite(best) ? best : 0);
     }
 
-    /// <summary>Mean gray difference between the previous band moved up by <paramref name="offset"/> and the new band.</summary>
+    /// <summary>
+    /// Mean gray difference between the previous band moved up by <paramref name="offset"/> (down
+    /// when negative) and the new band, over the rows they share.
+    /// </summary>
     private static double OverlapDifference(byte[] previous, byte[] current, int width, int bandTop, int bandBottom, int offset)
     {
-        var rows = bandBottom - bandTop - offset;
-        if (rows <= 0)
+        var rows = bandBottom - bandTop - Math.Abs(offset);
+        if (rows < MinBand / 2)
         {
             return double.MaxValue;
         }
 
         long sum = 0;
-        var fromPrevious = (bandTop + offset) * width;
-        var fromCurrent = bandTop * width;
+        var fromPrevious = (bandTop + Math.Max(offset, 0)) * width;
+        var fromCurrent = (bandTop + Math.Max(-offset, 0)) * width;
         var count = rows * width;
         for (var i = 0; i < count; i++)
         {
