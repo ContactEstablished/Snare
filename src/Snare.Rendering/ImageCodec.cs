@@ -51,7 +51,10 @@ public static class ImageCodec
     public static SKBitmap Decode(byte[] data)
     {
         ArgumentNullException.ThrowIfNull(data);
-        using var decoded = SKBitmap.Decode(data)
+        // SKBitmap.Decode throws ArgumentNullException (not null) for bytes no codec recognizes.
+        using var skData = SKData.CreateCopy(data);
+        using var codec = SKCodec.Create(skData) ?? throw new InvalidDataException("The data is not a PNG, JPG or WebP image.");
+        using var decoded = SKBitmap.Decode(codec)
             ?? throw new InvalidDataException("The image could not be decoded.");
         var bitmap = new SKBitmap(new SKImageInfo(decoded.Width, decoded.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
         using (var canvas = new SKCanvas(bitmap))
