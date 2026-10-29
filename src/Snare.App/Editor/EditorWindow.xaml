@@ -160,6 +160,7 @@
                     <Button Content="Apply crop" Command="{Binding ApplyCropCommand}" ToolTip="Enter" />
                 </StackPanel>
                 <Button Content="Remove crop" Command="{Binding ClearCropCommand}" Visibility="{Binding HasCrop, Converter={StaticResource Visible}}" />
+                <Button Content="Resize…" Command="{Binding ResizeCommand}" ToolTip="Change the exported image's size" />
             </StackPanel>
         </Border>
 

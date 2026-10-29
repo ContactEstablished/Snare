@@ -49,7 +49,7 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
         menu.Items.Add(new Separator());
 
         var exit = new MenuItem { Header = "Exit" };
-        exit.Click += (_, _) => Application.Current.Shutdown();
+        exit.Click += (_, _) => actions.Exit();
         menu.Items.Add(exit);
 
         _trayIcon = new TaskbarIcon

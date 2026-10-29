@@ -17,6 +17,15 @@ public sealed class EditorService(
     private readonly Dictionary<Guid, EditorWindow> _open = [];
     private readonly HashSet<Guid> _opening = [];
 
+    /// <summary>Tray → Exit: every open editor saves its edits first.</summary>
+    public async Task SaveAllBeforeExitAsync()
+    {
+        foreach (var window in _open.Values.ToList())
+        {
+            await window.SaveBeforeExitAsync();
+        }
+    }
+
     public async Task OpenAsync(Guid captureId)
     {
         if (_open.TryGetValue(captureId, out var existing))

@@ -10,6 +10,7 @@ using SkiaSharp;
 using Snare.App.Messages;
 using Snare.App.Services;
 using Snare.Core.Annotations;
+using Snare.Core.Geometry;
 using Snare.Core.Captures;
 using Snare.Core.Imaging;
 using Snare.Core.Options;
@@ -85,6 +86,9 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
 
     /// <summary>Set by the view: returns a path for Save As, or null if cancelled.</summary>
     public Func<string, string?>? PickSaveAsPath { get; set; }
+
+    /// <summary>The view's Resize dialog: current and natural output size in, chosen size out (null when cancelled).</summary>
+    public Func<PixelSize, PixelSize, PixelSize?>? PickSize { get; set; }
 
     /// <summary>Set by the view: asks Matt to confirm discarding the original.</summary>
     public Func<bool>? ConfirmDiscardOriginal { get; set; }
@@ -243,6 +247,18 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void ClearCrop() => Session.ClearCrop();
+
+    /// <summary>Resize…: a new output size for the export (after any crop); undoable like any edit.</summary>
+    [RelayCommand]
+    private void Resize()
+    {
+        var canvas = Session.Document.Canvas;
+        var natural = new PixelSize(canvas.ExportArea.Width, canvas.ExportArea.Height);
+        if (PickSize?.Invoke(canvas.OutputSize, natural) is { } size)
+        {
+            Session.Resize(size == natural ? null : size);
+        }
+    }
 
     /// <summary>Copies the flattened image, exactly as it would export.</summary>
     [RelayCommand]

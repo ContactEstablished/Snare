@@ -236,6 +236,9 @@ public sealed class RecordingService(
         }
     }
 
+    /// <summary>Stops the current recording and deletes it (tray → Exit → Discard).</summary>
+    public Task DiscardAsync() => _session is { } session ? DiscardAsync(session) : Task.CompletedTask;
+
     private async Task DiscardAsync(Session session)
     {
         if (!IsCurrent(session))
