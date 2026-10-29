@@ -133,6 +133,107 @@ public sealed class SqliteCaptureStore : ICaptureStore
         return entity.ToRecord();
     }
 
+    public async Task<PixelBuffer> LoadOriginalAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var record = await GetAsync(id, cancellationToken) ?? throw new KeyNotFoundException($"No capture {id}.");
+        using var bitmap = await LoadSourceBitmapAsync(record, cancellationToken);
+        var pixels = new byte[PixelBuffer.ByteCount(bitmap.Width, bitmap.Height)];
+        System.Runtime.InteropServices.Marshal.Copy(bitmap.GetPixels(), pixels, 0, pixels.Length);
+        return new PixelBuffer(bitmap.Width, bitmap.Height, pixels);
+    }
+
+    public async Task SaveAnnotationsAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        await EnsureInitializedAsync(cancellationToken);
+        await using var db = new SnareDbContext(_dbOptions);
+        var row = await db.Captures.FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException($"No capture {id}.");
+        row.AnnotationJson = AnnotationJson.Serialize(document);
+        row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<CaptureRecord> ReexportAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        await EnsureInitializedAsync(cancellationToken);
+        await _save.WaitAsync(cancellationToken);
+        try
+        {
+            return await ReexportCoreAsync(id, document, discardOriginal: false, cancellationToken);
+        }
+        finally
+        {
+            _save.Release();
+        }
+    }
+
+    public async Task<CaptureRecord> DiscardOriginalAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        await EnsureInitializedAsync(cancellationToken);
+        await _save.WaitAsync(cancellationToken);
+        try
+        {
+            return await ReexportCoreAsync(id, document, discardOriginal: true, cancellationToken);
+        }
+        finally
+        {
+            _save.Release();
+        }
+    }
+
+    /// <summary>
+    /// Export first, then the row, then (when discarding) the original: if anything fails,
+    /// the original is still there to try again.
+    /// </summary>
+    private async Task<CaptureRecord> ReexportCoreAsync(Guid id, AnnotationDocument document, bool discardOriginal, CancellationToken cancellationToken)
+    {
+        await using var db = new SnareDbContext(_dbOptions);
+        var row = await db.Captures.FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException($"No capture {id}.");
+        if (row.OriginalPath is null)
+        {
+            throw new InvalidOperationException($"Capture {id} has no original; it can't be re-edited.");
+        }
+
+        var options = _options.CurrentValue;
+        using (var original = await LoadSourceBitmapAsync(row.ToRecord(), cancellationToken))
+        using (var flattened = _renderer.Render(original, document))
+        {
+            var encoded = ExportEncoder.Encode(flattened, ExportEncoder.FormatOf(row.FilePath), options.JpegQuality);
+            await WriteFileAsync(row.FilePath, encoded, cancellationToken);
+            await WriteFileAsync(_paths.ThumbnailPathFor(id), ImageCodec.EncodeThumbnail(flattened), cancellationToken);
+            row.Width = flattened.Width;
+            row.Height = flattened.Height;
+        }
+
+        var originalPath = row.OriginalPath;
+        row.AnnotationJson = discardOriginal ? null : AnnotationJson.Serialize(document);
+        row.OriginalPath = discardOriginal ? null : row.OriginalPath;
+        row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
+        await db.SaveChangesAsync(cancellationToken);
+
+        if (discardOriginal)
+        {
+            File.Delete(originalPath);
+            _logger.LogInformation("Discarded the original of capture {Id}; its export is now permanent", id);
+        }
+        else
+        {
+            _logger.LogInformation("Re-exported capture {Id} to {Path}", id, row.FilePath);
+        }
+
+        return row.ToRecord();
+    }
+
+    private static async Task<SKBitmap> LoadSourceBitmapAsync(CaptureRecord record, CancellationToken cancellationToken)
+    {
+        var path = record.OriginalPath is { } original && File.Exists(original) ? original : record.FilePath;
+        return ImageCodec.Decode(await File.ReadAllBytesAsync(path, cancellationToken));
+    }
+
     public async Task<IReadOnlyList<CaptureRecord>> ListAsync(CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);

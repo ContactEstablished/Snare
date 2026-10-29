@@ -1,3 +1,4 @@
+using Snare.Core.Annotations;
 using Snare.Core.Imaging;
 
 namespace Snare.Core.Captures;
@@ -22,4 +23,19 @@ public interface ICaptureStore
     Task MoveToTrashAsync(Guid id, CancellationToken cancellationToken = default);
 
     string ThumbnailPathFor(Guid id);
+
+    /// <summary>The untouched pixels for editing, or the export's pixels once the original is discarded.</summary>
+    Task<PixelBuffer> LoadOriginalAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Autosave: stores the editable annotation layer without re-exporting.</summary>
+    Task SaveAnnotationsAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default);
+
+    /// <summary>Renders the original plus annotations and overwrites the export and thumbnail in place.</summary>
+    Task<CaptureRecord> ReexportAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-exports, then deletes the original so redactions are permanent. The capture can't be
+    /// re-edited afterwards; the export is its only copy.
+    /// </summary>
+    Task<CaptureRecord> DiscardOriginalAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default);
 }

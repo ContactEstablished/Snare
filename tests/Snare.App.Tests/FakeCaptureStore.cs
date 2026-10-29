@@ -1,3 +1,4 @@
+using Snare.Core.Annotations;
 using Snare.Core.Captures;
 using Snare.Core.Imaging;
 
@@ -37,4 +38,16 @@ internal sealed class FakeCaptureStore : ICaptureStore
     }
 
     public string ThumbnailPathFor(Guid id) => $@"C:\nowhere\{id:N}.webp";
+
+    public Task<PixelBuffer> LoadOriginalAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(PixelBuffer.Filled(800, 600, 0xFF336699));
+
+    public Task SaveAnnotationsAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public Task<CaptureRecord> ReexportAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Captures.First(c => c.Id == id));
+
+    public Task<CaptureRecord> DiscardOriginalAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Captures.First(c => c.Id == id) with { OriginalPath = null });
 }
