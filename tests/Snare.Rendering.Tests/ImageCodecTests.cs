@@ -70,6 +70,34 @@ public class ImageCodecTests
     }
 
     [Fact]
+    public void Thumbnail_OfAVeryTallImage_ShowsItsTop()
+    {
+        // 400x4000: red top 300 rows (the 4:3 crop), blue below.
+        using var tall = new SKBitmap(new SKImageInfo(400, 4000, SKColorType.Bgra8888, SKAlphaType.Premul));
+        using (var canvas = new SKCanvas(tall))
+        {
+            canvas.Clear(SKColors.Blue);
+            using var red = new SKPaint { Color = SKColors.Red };
+            canvas.DrawRect(0, 0, 400, 300, red);
+        }
+
+        using var decoded = ImageCodec.Decode(ImageCodec.EncodeThumbnail(tall));
+
+        Assert.Equal((320, 240), (decoded.Width, decoded.Height));
+        Assert.InRange(decoded.GetPixel(160, 230).Red, 200, 255); // still the top's red at the bottom edge
+    }
+
+    [Theory]
+    [InlineData(1920, 30000, 1920, 1440)]
+    [InlineData(400, 801, 400, 300)]
+    [InlineData(400, 800, 400, 800)]
+    [InlineData(5120, 1440, 5120, 1440)]
+    public void ThumbnailSource_CropsOnlyVeryTallImages(int width, int height, int expectedWidth, int expectedHeight)
+    {
+        Assert.Equal(new PixelSize(expectedWidth, expectedHeight), ImageCodec.ThumbnailSource(new PixelSize(width, height)));
+    }
+
+    [Fact]
     public void Decode_RejectsBytesThatArentAnImage()
     {
         Assert.Throws<InvalidDataException>(() => ImageCodec.Decode("not really a png"u8.ToArray()));

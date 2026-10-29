@@ -12,7 +12,8 @@ public interface ICaptureStore
     /// capture stays in the library and the error is rethrown.
     /// </summary>
     Task<CaptureRecord> SaveImageAsync(
-        PixelBuffer image, CaptureSource source, DateTimeOffset capturedAt, CancellationToken cancellationToken = default);
+        PixelBuffer image, CaptureSource source, DateTimeOffset capturedAt, CaptureKind kind = CaptureKind.Image,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Every capture not in the Trash, newest first.</summary>
     Task<IReadOnlyList<CaptureRecord>> ListAsync(CancellationToken cancellationToken = default);

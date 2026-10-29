@@ -46,7 +46,8 @@ public sealed partial class SqliteCaptureStore : ICaptureStore, ICaptureCatalog
     private string ConnectionString => new SqliteConnectionStringBuilder { DataSource = _paths.DatabasePath }.ToString();
 
     public async Task<CaptureRecord> SaveImageAsync(
-        PixelBuffer image, CaptureSource source, DateTimeOffset capturedAt, CancellationToken cancellationToken = default)
+        PixelBuffer image, CaptureSource source, DateTimeOffset capturedAt, CaptureKind kind = CaptureKind.Image,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(source);
@@ -66,7 +67,7 @@ public sealed partial class SqliteCaptureStore : ICaptureStore, ICaptureCatalog
         await _save.WaitAsync(cancellationToken);
         try
         {
-            return await SaveRowAndExportAsync(id, bitmap, image, source, capturedAt, originalPath, options, cancellationToken);
+            return await SaveRowAndExportAsync(id, kind, bitmap, image, source, capturedAt, originalPath, options, cancellationToken);
         }
         finally
         {
@@ -76,6 +77,7 @@ public sealed partial class SqliteCaptureStore : ICaptureStore, ICaptureCatalog
 
     private async Task<CaptureRecord> SaveRowAndExportAsync(
         Guid id,
+        CaptureKind kind,
         SKBitmap bitmap,
         PixelBuffer image,
         CaptureSource source,
@@ -90,7 +92,7 @@ public sealed partial class SqliteCaptureStore : ICaptureStore, ICaptureCatalog
         var entity = new CaptureEntity
         {
             Id = id,
-            Kind = CaptureKind.Image,
+            Kind = kind,
             FilePath = exportPath,
             OriginalPath = originalPath,
             Width = image.Width,

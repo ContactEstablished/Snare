@@ -1,6 +1,7 @@
 using Snare.Core.Captures;
 using Snare.Core.Imaging;
 using Snare.Core.Options;
+using Snare.Core.Search;
 using Snare.Library.Data;
 using Snare.Rendering;
 
@@ -18,7 +19,7 @@ public class SqliteCaptureStoreTests
     {
         using var library = new TempLibrary();
 
-        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(40, 20, 0xFF1F6FEB), Chrome, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(40, 20, 0xFF1F6FEB), Chrome, CapturedAt, cancellationToken: Ct);
 
         Assert.Equal(Path.Combine(library.Paths.LibraryRoot, "2026", "10", "2026-10-28_093015.png"), record.FilePath);
         Assert.True(File.Exists(record.FilePath));
@@ -35,13 +36,26 @@ public class SqliteCaptureStoreTests
     }
 
     [Fact]
+    public async Task Save_AScrollingCapture_KeepsItsKindAndIsFoundByKind()
+    {
+        using var library = new TempLibrary();
+
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(40, 400, 0xFFFFFFFF), Chrome, CapturedAt, CaptureKind.Scrolling, Ct);
+
+        Assert.Equal(CaptureKind.Scrolling, record.Kind);
+        Assert.Equal((40, 400), (record.Width, record.Height));
+        var found = await library.Store.SearchAsync(SearchQueryParser.Parse("kind:scrolling"), Ct);
+        Assert.Equal(record.Id, Assert.Single(found).Id);
+    }
+
+    [Fact]
     public async Task Save_ExportsTheSamePixels()
     {
         using var library = new TempLibrary();
         var image = PixelBuffer.Filled(4, 4, 0xFF112233);
         image.Pixels[(2 * image.Stride) + 4] = 0xFF; // (1, 2) blue
 
-        var record = await library.Store.SaveImageAsync(image, Chrome, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(image, Chrome, CapturedAt, cancellationToken: Ct);
 
         using var export = ImageCodec.Decode(await File.ReadAllBytesAsync(record.FilePath, Ct));
         using var original = ImageCodec.Decode(await File.ReadAllBytesAsync(record.OriginalPath!, Ct));
@@ -54,9 +68,9 @@ public class SqliteCaptureStoreTests
     {
         using var library = new TempLibrary();
 
-        var first = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, Ct);
-        var second = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, Ct);
-        var third = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, Ct);
+        var first = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, cancellationToken: Ct);
+        var second = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, cancellationToken: Ct);
+        var third = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, cancellationToken: Ct);
 
         Assert.EndsWith("2026-10-28_093015.png", first.FilePath, StringComparison.Ordinal);
         Assert.EndsWith("2026-10-28_093015_2.png", second.FilePath, StringComparison.Ordinal);
@@ -69,7 +83,7 @@ public class SqliteCaptureStoreTests
     {
         using var library = new TempLibrary(new SnareOptions { DefaultExportFormat = ExportFormat.Jpeg, JpegQuality = 80 });
 
-        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFFFFFFFF), Chrome, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFFFFFFFF), Chrome, CapturedAt, cancellationToken: Ct);
 
         Assert.EndsWith(".jpg", record.FilePath, StringComparison.Ordinal);
         var bytes = await File.ReadAllBytesAsync(record.FilePath, Ct);
@@ -80,9 +94,9 @@ public class SqliteCaptureStoreTests
     public async Task List_IsNewestFirstAndSkipsTheTrash()
     {
         using var library = new TempLibrary();
-        var older = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0), Chrome, CapturedAt, Ct);
-        var newer = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0), Chrome, CapturedAt.AddMinutes(1), Ct);
-        var trashed = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0), Chrome, CapturedAt.AddMinutes(2), Ct);
+        var older = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0), Chrome, CapturedAt, cancellationToken: Ct);
+        var newer = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0), Chrome, CapturedAt.AddMinutes(1), cancellationToken: Ct);
+        var trashed = await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0), Chrome, CapturedAt.AddMinutes(2), cancellationToken: Ct);
 
         await library.Store.MoveToTrashAsync(trashed.Id, Ct);
         var list = await library.Store.ListAsync(Ct);
@@ -101,7 +115,7 @@ public class SqliteCaptureStoreTests
         await File.WriteAllTextAsync(Path.Combine(library.Paths.LibraryRoot, "2026"), "in the way", Ct);
 
         await Assert.ThrowsAnyAsync<IOException>(() =>
-            library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), Chrome, CapturedAt, Ct));
+            library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), Chrome, CapturedAt, cancellationToken: Ct));
 
         var saved = Assert.Single(await library.Store.ListAsync(Ct));
         Assert.True(File.Exists(saved.OriginalPath));
@@ -116,7 +130,7 @@ public class SqliteCaptureStoreTests
         using var library = new TempLibrary();
 
         var records = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
-            library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, Ct)));
+            library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, cancellationToken: Ct)));
 
         Assert.Equal(4, records.Select(r => r.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.All(records, r => Assert.True(File.Exists(r.FilePath)));
@@ -127,7 +141,7 @@ public class SqliteCaptureStoreTests
     {
         using var library = new TempLibrary();
 
-        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(1280, 360, 0xFF1F6FEB), Chrome, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(1280, 360, 0xFF1F6FEB), Chrome, CapturedAt, cancellationToken: Ct);
 
         using var thumb = ImageCodec.Decode(await File.ReadAllBytesAsync(library.Store.ThumbnailPathFor(record.Id), Ct));
         Assert.Equal((320, 90), (thumb.Width, thumb.Height));
@@ -148,7 +162,7 @@ public class SqliteCaptureStoreTests
     public async Task Migrate_IsSafeToRunAgain()
     {
         using var library = new TempLibrary();
-        await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0), Chrome, CapturedAt, Ct);
+        await library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0), Chrome, CapturedAt, cancellationToken: Ct);
 
         using var connection = library.OpenDatabase();
         await SchemaMigrator.MigrateAsync(connection, Ct);

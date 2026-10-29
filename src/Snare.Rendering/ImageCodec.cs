@@ -21,16 +21,40 @@ public static class ImageCodec
         return Encode(bitmap, SKEncodedImageFormat.Jpeg, quality);
     }
 
-    /// <summary>A WebP thumbnail that fits in 320x240, never upscaled.</summary>
+    /// <summary>
+    /// A WebP thumbnail that fits in 320x240, never upscaled. Very tall images (scrolling
+    /// captures) show their top, cut to the thumbnail's shape, instead of a thin sliver.
+    /// </summary>
     public static byte[] EncodeThumbnail(SKBitmap bitmap)
     {
         ArgumentNullException.ThrowIfNull(bitmap);
-        var size = ThumbnailSize(new PixelSize(bitmap.Width, bitmap.Height));
-        using var scaled = bitmap.Resize(
+        var top = ThumbnailSource(new PixelSize(bitmap.Width, bitmap.Height));
+        using var cropped = top.Height < bitmap.Height ? new SKBitmap() : null;
+        if (cropped is not null && !bitmap.ExtractSubset(cropped, new SKRectI(0, 0, top.Width, top.Height)))
+        {
+            throw new InvalidOperationException("SkiaSharp could not crop the thumbnail.");
+        }
+
+        var source = cropped ?? bitmap;
+        var size = ThumbnailSize(top);
+        using var scaled = source.Resize(
             new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Opaque),
             new SKSamplingOptions(SKCubicResampler.Mitchell))
             ?? throw new InvalidOperationException("SkiaSharp could not scale the thumbnail.");
         return Encode(scaled, SKEncodedImageFormat.Webp, 80);
+    }
+
+    /// <summary>
+    /// The part of an image a thumbnail shows: all of it, or for images more than twice as tall as
+    /// wide, the top at the thumbnail box's 4:3 shape.
+    /// </summary>
+    public static PixelSize ThumbnailSource(PixelSize image)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(image.Width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(image.Height);
+        return image.Height > 2L * image.Width
+            ? new PixelSize(image.Width, Math.Max(1, image.Width * ThumbnailMaxHeight / ThumbnailMaxWidth))
+            : image;
     }
 
     /// <summary>Fits a size inside the thumbnail box, keeping the aspect ratio, at least 1x1.</summary>

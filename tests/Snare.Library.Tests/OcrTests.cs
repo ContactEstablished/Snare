@@ -53,13 +53,13 @@ public class OcrTests
     public async Task Maintenance_ReadsTextOfNewAndExistingCaptures()
     {
         using var library = new TempLibrary();
-        var existing = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF000000), CaptureSource.Unknown, DateTimeOffset.Now, Ct);
+        var existing = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF000000), CaptureSource.Unknown, DateTimeOffset.Now, cancellationToken: Ct);
         var ocr = new FakeOcr("hello from ocr");
         var service = new LibraryMaintenanceService(library.Store, ocr, new OcrQueue(), NullLogger<LibraryMaintenanceService>.Instance);
 
         await service.StartAsync(Ct);
         await service.Started;
-        var fresh = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF000000), CaptureSource.Unknown, DateTimeOffset.Now, Ct);
+        var fresh = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF000000), CaptureSource.Unknown, DateTimeOffset.Now, cancellationToken: Ct);
 
         await WaitUntil(async () => (await library.Store.ListAwaitingOcrAsync(Ct)).Count == 0);
         await service.StopAsync(Ct);
@@ -73,13 +73,13 @@ public class OcrTests
     public async Task Maintenance_SurvivesAnOcrFailure()
     {
         using var library = new TempLibrary();
-        var bad = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF000000), CaptureSource.Unknown, DateTimeOffset.Now, Ct);
+        var bad = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF000000), CaptureSource.Unknown, DateTimeOffset.Now, cancellationToken: Ct);
         var ocr = new FakeOcr("ok") { FailFor = 1 };
         var service = new LibraryMaintenanceService(library.Store, ocr, new OcrQueue(), NullLogger<LibraryMaintenanceService>.Instance);
 
         await service.StartAsync(Ct);
         await service.Started;
-        var good = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF000000), CaptureSource.Unknown, DateTimeOffset.Now, Ct);
+        var good = await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF000000), CaptureSource.Unknown, DateTimeOffset.Now, cancellationToken: Ct);
         await WaitUntil(async () => (await library.Store.GetAsync(good.Id, Ct))!.OcrText is not null);
         await service.StopAsync(Ct);
 
