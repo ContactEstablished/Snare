@@ -178,7 +178,9 @@ public sealed class ScrollStitcher
             return (Drop(StitchOutcome.NoMatch, "Too little of the area scrolls to line up frames."), 0);
         }
 
-        var strip = Math.Clamp((bandBottom - bandTop) / 4, 16, 120);
+        // Small, so a blank stretch at the bottom of the view costs little range; the overlap check
+        // below catches the odd false match a small strip allows.
+        var strip = Math.Clamp((bandBottom - bandTop) / 8, 16, 48);
         var templateTop = TexturedStrip(previous, width, bandTop, bandBottom, strip, fromBottom: true);
         if (templateTop is not { } top)
         {

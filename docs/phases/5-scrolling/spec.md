@@ -70,7 +70,7 @@ Tall captures open fitted to the window's width rather than its height, so the t
 ## Tests
 
 - **Stitcher fixtures, synthetic:** a generated page with a sticky header and footer, cut into frames at known offsets (including no movement, scrolling back, a blank gap, noise, and the cap). The result must match the page exactly.
-- **Stitcher fixtures, recorded:** frame sequences recorded from a local test page in headless Edge (`tests/Snare.Capture.Tests/Fixtures/Scrolling/`, recorded by `tools/record-scroll-fixture.mjs`). The page has a sticky header, so the frames carry real text rendering, sticky positioning and recorded scroll positions. The test checks the stitched height and that every frame's content appears at its recorded scroll position.
+- **Stitcher fixtures, recorded:** frame sequences recorded from a local test page in headless Edge (`tests/Snare.Capture.Tests/Fixtures/Scrolling/`, recorded by `tools/scroll-fixture/record.mjs`). The page has a sticky header, so the frames carry real text rendering, sticky positioning and recorded scroll positions. The test checks the stitched height and that every frame's content appears at its recorded scroll position.
 - Session tests with a fake frame source and scroll driver: manual skips duplicates; automatic waits for settling and stops at the end.
 - UI tests: panel XAML loads, the view model's buttons, and tall-image editor fit.
 
