@@ -93,10 +93,34 @@ public sealed class ShellService(
                     return;
                 }
 
-                await (answer == System.Windows.MessageBoxResult.Yes ? recording.StopAsync() : recording.DiscardAsync());
+                await (answer == System.Windows.MessageBoxResult.Yes ? recording.StopAsync(openPlayer: false) : recording.DiscardAsync());
             }
 
-            await editors.SaveAllBeforeExitAsync();
+            try
+            {
+                await recording.WhenFinishedAsync(); // a recording stopped just before Exit may still be saving
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "A recording didn't finish saving before exit");
+            }
+
+            var failed = await editors.SaveAllBeforeExitAsync();
+            if (failed > 0 && System.Windows.MessageBox.Show(
+                    $"""
+                    {failed} open editor{(failed == 1 ? "" : "s")} couldn't update the library image (see the editor's status bar). Edits are kept where possible.
+
+                    Exit anyway?
+                    """,
+                    "Exit Snare",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning,
+                    System.Windows.MessageBoxResult.No) != System.Windows.MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            editors.AllowCloseAll();
             logger.LogInformation("Exiting from the tray");
             System.Windows.Application.Current.Shutdown();
         }

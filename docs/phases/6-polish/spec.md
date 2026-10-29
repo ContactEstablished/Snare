@@ -8,13 +8,13 @@ Snare becomes something Matt can live in: a Settings window (hotkeys, library fo
 
 ## Settings
 
-- **Storage:** `%LOCALAPPDATA%\Snare\settings.json` holds Matt's changes in the same `"Snare"` section shape as `appsettings.json`. It is layered over `appsettings.json` with reload on change, so `IOptionsMonitor<SnareOptions>` sees a save at once. The file holds the whole section, written atomically (temp file, then replace).
+- **Storage:** `%LOCALAPPDATA%\Snare\settings.json` (a damaged file is skipped with a warning, so Snare still starts) holds Matt's changes in the same `"Snare"` section shape as `appsettings.json`. It is layered over `appsettings.json` with reload on change, so `IOptionsMonitor<SnareOptions>` sees a save at once. The file holds the whole section, written atomically (temp file, then replace).
 - **New options:**
   - `Hotkeys`: a gesture per action, as text ("Ctrl+Shift+PrtSc"). Defaults are the decided keys.
   - `StartWithWindows`: default true.
   - `BackupFolder`: empty means `Documents\Snare Backups`.
 - **Settings window** (tray → Settings…), one page of grouped sections:
-  - **Hotkeys:** one box per action. Click a box and press the combination; it shows what was pressed. Esc in the box keeps the old one; Backspace clears it, which turns that hotkey off.
+  - **Hotkeys:** one box per action. Click a box and press the combination; it shows what was pressed. Esc in the box keeps the old one; Backspace clears it, which turns that hotkey off. Numpad digits are refused (they'd register the top-row key).
     - Duplicates are refused with a message.
     - At least one key must be pressed with the modifiers. `PrtSc`, `A–Z`, `0–9` and `F1–F24` are allowed.
     - Plain letters and digits need Ctrl or Alt, so typing never fires a capture.
@@ -33,7 +33,7 @@ Snare becomes something Matt can live in: a Settings window (hotkeys, library fo
 
 - Snare writes the per-user Run key (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value `Snare`) with the quoted path of the running exe, or removes it.
 - This happens at startup, to match the setting, and again when the setting is saved.
-- Debug builds never write it, so builds run from a worktree never land in Matt's sign-in. They log that they skipped it.
+- Only the installed copy (`%LOCALAPPDATA%\Programs\Snare`, where `tools/publish.ps1` puts it) writes it, so builds run from a worktree never land in Matt's sign-in. Other copies log that they skipped it.
 
 ## Backup
 
@@ -46,7 +46,7 @@ Snare becomes something Matt can live in: a Settings window (hotkeys, library fo
 
 ## Callout tool
 
-- `CalloutAnnotation`: a rounded text bubble (bounds, text, font size, text color, fill, stroke, stroke width), with a tail ending at a free point (`Tail`). The tail leaves the bubble from the side nearest the point.
+- `CalloutAnnotation`: a rounded text bubble (bounds, text, font size, one color for text and outline, fill, stroke width), with a tail ending at a free point (`Tail`). The tail leaves the bubble from the side nearest the point. No fill means see-through.
 - The text is laid out like the Text tool's (lines separated by Enter), padded inside the bubble and clipped to it. Resizing the bubble doesn't reflow the text.
 - Shortcut `K`, with its own remembered style.
 - To draw one, drag the bubble, then type. The tail starts below and left of the bubble.

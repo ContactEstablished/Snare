@@ -10,7 +10,7 @@ See [spec.md](spec.md).
 - [x] App: settings store (settings.json layered with reload), hotkeys re-register on change, Start with Windows sync, tray Settings… and Back up library, Settings window; plus tests
 - [x] Rendering and editor: Callout tool; golden images; plus tests
 - [x] App: exit flush for editors, exit prompt while recording, editor Resize… dialog; plus tests
-- [ ] Code review, merge, push
+- [x] Code review, merge, push
 
 ## Checked by the agent (Oct 29, 2026)
 
@@ -25,10 +25,12 @@ See [spec.md](spec.md).
 - Restoring a backup is done by hand (steps below).
 - Resizing a callout's bubble doesn't reflow its text; long lines are clipped at the bubble's edge.
 - Exiting during a scrolling capture doesn't save it.
+- After a restore, image thumbnails are rebuilt from the exports at startup; video tiles stay blank (the library can't run FFmpeg).
+- A callout has one color for its text and outline.
 
 ## Awaiting Matt
 
-Settings and Start with Windows act on the real machine, so check them with a Release build. Quit any running Snare, run `./tools/publish.ps1` (it publishes to `%LOCALAPPDATA%\Programs\Snare`), then start `Snare.exe` from there.
+Settings and Start with Windows act on the real machine, so check them with the installed copy. Quit any running Snare, run `./tools/publish.ps1` (it publishes to `%LOCALAPPDATA%\Programs\Snare`), then start `Snare.exe` from there. Only that copy writes the Run key.
 
 - [ ] **Settings opens:** tray → Settings… opens one window, and a second click brings it forward. While it's open, PrtSc does nothing.
 - [ ] **Change a hotkey:**
@@ -36,10 +38,12 @@ Settings and Start with Windows act on the real machine, so check them with a Re
   - The tray menu shows Ctrl+Alt+G, `Ctrl+Alt+G` grabs text, and `Ctrl+Alt+PrtSc` no longer does.
   - Set it back.
   - Set Record video to `PrtSc`: Save is disabled, with "PrtSc is set for both Capture and Record video".
-  - Backspace in a box shows "Off".
+  - Backspace in a box shows "Off"; Esc in a box keeps the old key and doesn't close Settings.
+  - Hold Ctrl, press and release PrtSc, release Ctrl: the box shows Ctrl+PrtSc.
 - [ ] **Library folder:**
   - Set a new folder with Browse…, Save, and take a capture: it lands in the new folder.
   - Older captures still open from the library.
+  - Point it at a folder of photos and restart: none of them are imported.
 - [ ] **Capture defaults:** switch to JPG at quality 80 and tick "Open the editor after a capture". The next capture is a .jpg and opens in the editor.
 - [ ] **Start with Windows:**
   - With the box ticked, `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` has a `Snare` value pointing at the published `Snare.exe`.
@@ -52,7 +56,8 @@ Settings and Start with Windows act on the real machine, so check them with a Re
 - [ ] **Restore, by hand:**
   - Quit Snare.
   - Rename `%LOCALAPPDATA%\Snare` to `Snare.old`, create an empty `%LOCALAPPDATA%\Snare`, and unzip a backup into it.
-  - Start Snare: the library, tags and edits are all there.
+  - Copy `settings.json`, `editor-styles.json` and `recording.json` back from `Snare.old` (they aren't in the backup).
+  - Start Snare: the library, tags and edits are all there, and image thumbnails come back within a few seconds.
   - Then delete `Snare.old`, or put it back.
 - [ ] **Callout:**
   - In the editor press `K`, drag a bubble, type two lines and click away.
@@ -67,6 +72,7 @@ Settings and Start with Windows act on the real machine, so check them with a Re
   - Cancel keeps recording.
   - Yes stops it, adds it to the library and quits.
   - On another run, No saves nothing.
+  - Press Stop on the control bar and at once tray → Exit: the recording still lands in the library.
 - [ ] **Exit with edits:**
   - Draw an arrow in an editor and at once tray → Exit.
   - Reopen Snare and the capture: the arrow is there, in the editor and in the export.

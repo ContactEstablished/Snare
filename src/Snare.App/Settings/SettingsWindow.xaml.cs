@@ -12,6 +12,10 @@ internal sealed partial class SettingsWindow : Window
 {
     public static readonly IValueConverter Not = new NotConverter();
 
+    // Modifiers seen while the combination is held: Windows reports PrtSc only on key-up, by
+    // which time Ctrl may already be released.
+    private ModifierKeys _held;
+
     public SettingsWindow(SettingsViewModel viewModel)
     {
         InitializeComponent();
@@ -32,13 +36,18 @@ internal sealed partial class SettingsWindow : Window
     private void OnHotkeyKey(object sender, KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (key == Key.Tab || key == Key.Escape)
+        if (key == Key.Tab)
         {
-            return; // keep moving between fields; Esc closes as everywhere else
+            return; // keep moving between fields
         }
 
-        e.Handled = true;
-        Press(sender, key);
+        e.Handled = true; // Esc too: in a hotkey box it keeps the old hotkey rather than closing Settings
+        _held = Keyboard.Modifiers; // the latest set held down, kept for a PrtSc that arrives on key-up
+        if (key != Key.Escape && HotkeyCapture.FromKey(key, Keyboard.Modifiers) is not null || key is Key.Back or Key.Delete)
+        {
+            Press(sender, key, Keyboard.Modifiers);
+            _held = ModifierKeys.None;
+        }
     }
 
     // Windows delivers PrtSc only as a key-up.
@@ -48,15 +57,16 @@ internal sealed partial class SettingsWindow : Window
         if (key == Key.Snapshot)
         {
             e.Handled = true;
-            Press(sender, key);
+            Press(sender, key, Keyboard.Modifiers | _held);
+            _held = ModifierKeys.None;
         }
     }
 
-    private static void Press(object sender, Key key)
+    private static void Press(object sender, Key key, ModifierKeys modifiers)
     {
         if (sender is FrameworkElement { Tag: HotkeyItemViewModel item })
         {
-            item.Press(HotkeyCapture.FromKey(key, Keyboard.Modifiers), clear: key is Key.Back or Key.Delete);
+            item.Press(HotkeyCapture.FromKey(key, modifiers), clear: key is Key.Back or Key.Delete);
         }
     }
 

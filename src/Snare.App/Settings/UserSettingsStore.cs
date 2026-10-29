@@ -22,14 +22,20 @@ public sealed class UserSettingsStore(string path)
 
     public string FilePath { get; } = path;
 
-    /// <summary>Writes every setting, replacing the file atomically so a reload never sees half of it.</summary>
-    public void Save(SnareOptions options)
+    /// <summary>
+    /// Writes every setting, replacing the file atomically so a reload never sees half of it. The
+    /// temp file is written through to disk first, so a power cut can't leave an empty settings file.
+    /// </summary>
+    public async Task SaveAsync(SnareOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        var json = JsonSerializer.Serialize(new Dictionary<string, SnareOptions> { [SnareOptions.SectionName] = options }, Json);
         var temp = FilePath + ".tmp";
-        File.WriteAllText(temp, json);
+        await using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough | FileOptions.Asynchronous))
+        {
+            await JsonSerializer.SerializeAsync(stream, new Dictionary<string, SnareOptions> { [SnareOptions.SectionName] = options }, Json, cancellationToken);
+        }
+
         File.Move(temp, FilePath, overwrite: true);
     }
 

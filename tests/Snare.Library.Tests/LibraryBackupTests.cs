@@ -27,7 +27,13 @@ public class LibraryBackupTests
         await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF112233), CaptureSource.Unknown, library.Clock.Now, cancellationToken: Ct);
         await library.Store.SaveImageAsync(PixelBuffer.Filled(8, 8, 0xFF445566), CaptureSource.Unknown, library.Clock.Now.AddSeconds(1), cancellationToken: Ct);
 
+        File.WriteAllText(Path.Combine(library.Paths.OriginalsFolder, "in-progress.png.1234.tmp"), "half a capture");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "Snare-backup-2026-10-01_120000.zip.partial"), "cut off");
+
         var zip = await backup.CreateAsync(Ct);
+
+        Assert.Empty(Directory.GetFiles(folder, "*.partial")); // a cut-off backup is cleaned up
 
         Assert.Equal(Path.Combine(folder, "Snare-backup-2026-10-28_093015.zip"), zip.FullName);
         using var archive = ZipFile.OpenRead(zip.FullName);

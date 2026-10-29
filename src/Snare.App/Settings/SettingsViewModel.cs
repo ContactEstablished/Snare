@@ -103,6 +103,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(BackUpNowCommand))]
     public partial bool IsBackingUp { get; private set; }
 
+    /// <summary>Why the last Save failed, or null.</summary>
+    [ObservableProperty]
+    public partial string? SaveError { get; private set; }
+
     /// <summary>Why Save is off, or null.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
@@ -174,7 +178,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task Save()
     {
-        await _save(ToOptions());
+        try
+        {
+            await _save(ToOptions());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SaveError = $"Couldn't save the settings: {ex.Message}";
+            return; // stay open so nothing typed is lost
+        }
+
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 

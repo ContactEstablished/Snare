@@ -16,8 +16,16 @@ public sealed partial class SqliteCaptureStore
     private static readonly string[] ImageExtensions = [".png", ".jpg", ".jpeg"];
 
     /// <summary>
+    /// Only files named like Snare's own exports are imported (decided Oct 29, 2026), so pointing
+    /// the library at a folder of photos never turns them into captures.
+    /// </summary>
+    [System.Text.RegularExpressions.GeneratedRegex(@"^\d{4}-\d{2}-\d{2}_\d{6}(_\d+)?$")]
+    private static partial System.Text.RegularExpressions.Regex SnareName();
+
+    /// <summary>
     /// Re-exports images whose export is gone but whose original remains; moves captures with
-    /// neither to the Trash; imports images under the library root that no capture knows about.
+    /// neither to the Trash; rebuilds missing thumbnails (after a restore); imports Snare-named
+    /// images under the library root that no capture knows about.
     /// </summary>
     public async Task<ReconcileResult> ReconcileAsync(CancellationToken cancellationToken = default)
     {
@@ -54,6 +62,7 @@ public sealed partial class SqliteCaptureStore
             }
         }
 
+        await RebuildThumbnailsAsync(rows, cancellationToken);
         var imported = await ImportUnknownFilesAsync(rows, cancellationToken);
         var result = new ReconcileResult(reexported, trashed, imported);
         if (result.Changed)
@@ -63,6 +72,36 @@ public sealed partial class SqliteCaptureStore
         }
 
         return result;
+    }
+
+    /// <summary>A backup holds no thumbnails, so after a restore they're made again from the exports. Videos keep a blank tile.</summary>
+    private async Task RebuildThumbnailsAsync(List<CaptureEntity> rows, CancellationToken cancellationToken)
+    {
+        var rebuilt = 0;
+        foreach (var row in rows.Where(r => !r.IsDeleted && r.Kind != CaptureKind.Video))
+        {
+            var thumbnail = _paths.ThumbnailPathFor(row.Id);
+            if (File.Exists(thumbnail) || !File.Exists(row.FilePath))
+            {
+                continue;
+            }
+
+            try
+            {
+                using var bitmap = ImageCodec.Decode(await File.ReadAllBytesAsync(row.FilePath, cancellationToken));
+                await WriteFileAsync(thumbnail, ImageCodec.EncodeThumbnail(bitmap), cancellationToken);
+                rebuilt++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Could not rebuild the thumbnail of capture {Id}", row.Id);
+            }
+        }
+
+        if (rebuilt > 0)
+        {
+            _logger.LogInformation("Rebuilt {Count} missing thumbnails", rebuilt);
+        }
     }
 
     private async Task<int> ImportUnknownFilesAsync(List<CaptureEntity> rows, CancellationToken cancellationToken)
@@ -78,6 +117,7 @@ public sealed partial class SqliteCaptureStore
         var candidates = Directory
             .EnumerateFiles(_paths.LibraryRoot, "*", options)
             .Where(p => ImageExtensions.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase))
+            .Where(p => SnareName().IsMatch(Path.GetFileNameWithoutExtension(p)))
             .Where(p => !known.Contains(Path.GetFullPath(p)));
 
         var imported = 0;
@@ -157,7 +197,6 @@ public sealed partial class SqliteCaptureStore
                 CreatedUtc = created,
                 ModifiedUtc = _clock.GetUtcNow().UtcDateTime,
                 SourceApp = "imported",
-                Title = Path.GetFileNameWithoutExtension(path),
             });
             await SaveAndReindexAsync(db, [id], cancellationToken);
         }

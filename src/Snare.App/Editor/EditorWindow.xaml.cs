@@ -248,19 +248,17 @@ internal sealed partial class EditorWindow : Window
     }
 
     /// <summary>
-    /// Tray → Exit: finishes typing, saves unexported edits (which also keeps them), then lets the
-    /// window close without asking. Shutdown ignores a cancelled Closing, so this runs first.
+    /// Tray → Exit: finishes typing and saves unexported edits (which also keeps them). False when
+    /// the image couldn't be updated; Exit then asks. Shutdown ignores a cancelled Closing, so this
+    /// runs first, and <see cref="AllowClose"/> lets the window go without asking again.
     /// </summary>
-    public async Task SaveBeforeExitAsync()
+    public async Task<bool> SaveBeforeExitAsync()
     {
         CommitTextEdit();
-        if (_viewModel.NeedsExport)
-        {
-            await _viewModel.SaveAsync();
-        }
-
-        _closingAfterSave = true;
+        return !_viewModel.NeedsExport || await _viewModel.SaveAsync();
     }
+
+    public void AllowClose() => _closingAfterSave = true;
 
     private async void OnClosing(object? sender, CancelEventArgs e)
     {

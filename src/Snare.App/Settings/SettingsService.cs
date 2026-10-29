@@ -22,6 +22,11 @@ public sealed class SettingsService(
     ILogger<SettingsService> logger)
 {
     private SettingsWindow? _window;
+    private HotkeyOptions? _savedHotkeys;
+
+    /// <summary>Where tools/publish.ps1 installs Snare. Only that copy registers itself to start with Windows.</summary>
+    public static string InstallFolder =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Snare");
 
     /// <summary>Tray → Settings…: one window at a time; hotkeys pause while it's open.</summary>
     public void Show()
@@ -35,22 +40,30 @@ public sealed class SettingsService(
         var viewModel = new SettingsViewModel(
             options.CurrentValue, SaveAsync, BackUpAsync, backup.LastBackupTime, LibraryPaths.DefaultLibraryRoot, LibraryBackup.DefaultFolder);
         _window = new SettingsWindow(viewModel);
+        _savedHotkeys = null;
         _window.Closed += (_, _) =>
         {
             _window = null;
-            hotkeys.Resume();
+            // The saved keys, not options.CurrentValue: settings.json reloads a moment later.
+            hotkeys.Resume(_savedHotkeys);
         };
         hotkeys.Suspend();
         _window.Show();
         _window.Activate();
     }
 
-    /// <summary>Makes the Run key match the setting. Debug builds never write it (they run from a worktree).</summary>
+    /// <summary>
+    /// Makes the Run key match the setting. Only the installed copy (see <see cref="InstallFolder"/>)
+    /// writes it, so a build run from a worktree never ends up in Matt's sign-in.
+    /// </summary>
     public void ApplyStartWithWindows(bool enabled)
     {
-#if DEBUG
-        logger.LogInformation("Debug build: not changing Start with Windows (setting is {Enabled})", enabled);
-#else
+        if (Environment.ProcessPath is not { } running || !IsInstalledCopy(running, InstallFolder))
+        {
+            logger.LogInformation("Not the installed copy: leaving Start with Windows alone (setting is {Enabled})", enabled);
+            return;
+        }
+
         try
         {
             var startup = new StartupRegistration();
@@ -68,8 +81,10 @@ public sealed class SettingsService(
         {
             logger.LogWarning(ex, "Could not update Start with Windows");
         }
-#endif
     }
+
+    public static bool IsInstalledCopy(string exePath, string installFolder) =>
+        string.Equals(Path.GetDirectoryName(Path.GetFullPath(exePath)), Path.GetFullPath(installFolder).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Tray → Back up library, and Settings → Back up now. Returns the message shown.</summary>
     public async Task<string> BackUpAsync()
@@ -81,7 +96,7 @@ public sealed class SettingsService(
             message = string.Create(CultureInfo.CurrentCulture, $"Saved {file.Name} ({file.Length / 1024.0 / 1024.0:N1} MB) in {file.DirectoryName}.");
             tray.Notify("Library backed up", message);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or Microsoft.Data.Sqlite.SqliteException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "Backup failed");
             message = $"Backup failed: {ex.Message}";
@@ -91,11 +106,11 @@ public sealed class SettingsService(
         return message;
     }
 
-    private Task SaveAsync(SnareOptions edited)
+    private async Task SaveAsync(SnareOptions edited)
     {
-        store.Save(edited);
+        await store.SaveAsync(edited);
+        _savedHotkeys = edited.Hotkeys;
         ApplyStartWithWindows(edited.StartWithWindows);
         logger.LogInformation("Settings saved to {Path}", store.FilePath);
-        return Task.CompletedTask;
     }
 }

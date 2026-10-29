@@ -39,6 +39,7 @@ public sealed class RecordingService(
 
     private bool _choosing;
     private Session? _session;
+    private Task _finishing = Task.CompletedTask;
 
     public bool IsRecording => _session is not null;
 
@@ -184,7 +185,7 @@ public sealed class RecordingService(
             },
             recorder.SetMicMuted,
             recorder.SetWebcamVisible,
-            StopAsync,
+            () => StopAsync(),
             () => RestartAsync(session),
             () => DiscardAsync(session));
         session.Controls = controls;
@@ -192,12 +193,27 @@ public sealed class RecordingService(
         session.ControlBar.Show();
     }
 
-    public async Task StopAsync()
+    /// <summary>
+    /// Stop: finishes the file, adds it to the library, and opens the player (not when exiting).
+    /// The work after the control bar closes is tracked, so Exit can wait for it.
+    /// </summary>
+    public Task StopAsync(bool openPlayer = true)
     {
         if (_session is not { } session)
         {
-            return;
+            return Task.CompletedTask;
         }
+
+        var stop = StopAsync(session, openPlayer);
+        _finishing = Task.WhenAll(_finishing, stop);
+        return stop;
+    }
+
+    /// <summary>Completes when every stopped recording has been finished and saved.</summary>
+    public Task WhenFinishedAsync() => _finishing;
+
+    private async Task StopAsync(Session session, bool openPlayer)
+    {
 
         var elapsed = session.Controls?.Elapsed ?? TimeSpan.Zero;
         EndSession(session);
@@ -218,7 +234,7 @@ public sealed class RecordingService(
             return;
         }
 
-        await SaveAsync(session, path, elapsed, openPlayer: true);
+        await SaveAsync(session, path, elapsed, openPlayer);
     }
 
     private async Task RestartAsync(Session session)

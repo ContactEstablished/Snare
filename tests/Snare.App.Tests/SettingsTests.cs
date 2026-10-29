@@ -85,7 +85,7 @@ public class SettingsTests
     }
 
     [Fact]
-    public void Store_RoundTripsThroughConfiguration()
+    public async Task Store_RoundTripsThroughConfiguration()
     {
         var folder = Directory.CreateTempSubdirectory("snare-settings-");
         try
@@ -101,8 +101,8 @@ public class SettingsTests
             written.Hotkeys.GrabText = "";
             written.Hotkeys.CaptureImage = "Ctrl+Alt+S";
 
-            store.Save(written);
-            store.Save(written); // replacing an existing file works too
+            await store.SaveAsync(written, TestContext.Current.CancellationToken);
+            await store.SaveAsync(written, TestContext.Current.CancellationToken); // replacing an existing file works too
 
             var configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?> { ["Snare:Hotkeys:GrabText"] = "Ctrl+Alt+PrtSc", ["Snare:JpegQuality"] = "70" })
@@ -130,7 +130,6 @@ public class SettingsTests
     [InlineData(Key.Snapshot, ModifierKeys.None, "PrtSc")]
     [InlineData(Key.S, ModifierKeys.Control | ModifierKeys.Alt, "Ctrl+Alt+S")]
     [InlineData(Key.D4, ModifierKeys.Control, "Ctrl+4")]
-    [InlineData(Key.NumPad7, ModifierKeys.Alt, "Alt+7")]
     [InlineData(Key.F9, ModifierKeys.Shift | ModifierKeys.Windows, "Shift+Win+F9")]
     public void HotkeyBox_TurnsKeysIntoGestures(Key key, ModifierKeys modifiers, string expected)
     {
@@ -142,11 +141,36 @@ public class SettingsTests
     {
         Assert.Null(HotkeyCapture.FromKey(Key.LeftCtrl, ModifierKeys.Control));
         Assert.Null(HotkeyCapture.FromKey(Key.Space, ModifierKeys.Control));
+        Assert.Null(HotkeyCapture.FromKey(Key.NumPad7, ModifierKeys.Alt));
         var item = new HotkeyItemViewModel(HotkeyAction.CaptureImage, "PrtSc");
         item.Press(null, clear: false);
         Assert.Equal("PrtSc", item.DisplayText);
         item.Press(null, clear: true);
         Assert.Equal("Off", item.DisplayText);
+    }
+
+    [Theory]
+    [InlineData(@"C:\Users\matt\AppData\Local\Programs\Snare\Snare.exe", true)]
+    [InlineData(@"c:\users\matt\appdata\local\programs\snare\SNARE.EXE", true)]
+    [InlineData(@"C:\Projects\Snare\.worktrees\phase-6\src\Snare.App\bin\x64\Release\Snare.exe", false)]
+    [InlineData(@"C:\Users\matt\AppData\Local\Programs\Snare\old\Snare.exe", false)]
+    public void StartWithWindows_IsOnlyWrittenByTheInstalledCopy(string exe, bool installed)
+    {
+        Assert.Equal(installed, SettingsService.IsInstalledCopy(exe, @"C:\Users\matt\AppData\Local\Programs\Snare\"));
+    }
+
+    [Fact]
+    public async Task Save_FailureStaysOpenAndSaysWhy()
+    {
+        var settings = new SettingsViewModel(
+            new SnareOptions(), _ => throw new IOException("The file is in use."), () => Task.FromResult(""), () => null, "a", "b");
+        var closed = false;
+        settings.CloseRequested += (_, _) => closed = true;
+
+        await settings.SaveCommand.ExecuteAsync(null);
+
+        Assert.False(closed);
+        Assert.Contains("The file is in use.", settings.SaveError, StringComparison.Ordinal);
     }
 
     [Fact]

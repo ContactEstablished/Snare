@@ -84,6 +84,11 @@ public sealed class EditorSmokeTests : IDisposable
         dialog.Width = 333;
         Assert.Equal(75, dialog.Height);
 
+        dialog.Width = 20_000; // 20000 x 75: fine
+        Assert.True(dialog.ApplyCommand.CanExecute(null));
+        dialog.Height = 20_000; // 400 megapixels: too big to render
+        Assert.False(dialog.ApplyCommand.CanExecute(null));
+
         PixelSize? result = new PixelSize(1, 1);
         dialog.Closed += (_, size) => result = size;
         dialog.Width = 0;

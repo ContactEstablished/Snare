@@ -136,6 +136,59 @@ public sealed class CalloutTests : IDisposable
     }
 
     [Fact]
+    public void UndoWhileEditingItsText_DoesntTurnItIntoPlainText()
+    {
+        var s = Session();
+        s.Tool = EditorTool.Callout;
+        TextAnnotation? requested = null;
+        s.TextEditRequested += (_, t) => requested = t;
+        s.PointerDown(new SKPoint(40, 30));
+        s.PointerUp(new SKPoint(160, 80));
+        s.CommitText(requested!, "First");
+
+        s.DoubleClick(new SKPoint(100, 50)); // edit it again...
+        s.Undo();                             // ...and undo adding it while the box is open
+        s.CommitText(requested!, "Second");
+
+        Assert.Empty(s.Objects);
+    }
+
+    [Fact]
+    public void ANewCallout_NearTheBottom_PointsUpInsideTheImage()
+    {
+        var s = Session();
+        s.Tool = EditorTool.Callout;
+        s.PointerDown(new SKPoint(40, 150));
+        s.PointerUp(new SKPoint(160, 190));
+
+        var pending = Assert.IsType<CalloutAnnotation>(s.Preview);
+        Assert.InRange(pending.Tail.Y, 0, 149);
+    }
+
+    [Fact]
+    public void NoFill_IsSeeThrough_AndShowsAsNoFill()
+    {
+        var s = Session(Callout(new PixelPoint(120, 160)));
+        s.Tool = EditorTool.Select;
+        s.PointerDown(new SKPoint(150, 70));
+        s.PointerUp(new SKPoint(150, 70));
+
+        s.ApplyStyleToSelection(style => style with { FillColor = null });
+
+        var callout = Assert.IsType<CalloutAnnotation>(Assert.Single(s.Objects));
+        Assert.Equal("#00000000", callout.Fill);
+        Assert.Null(s.StyleOf(callout).FillColor);
+    }
+
+    [Fact]
+    public void Json_LeavesOutComputedPadding()
+    {
+        var json = AnnotationJson.Serialize(new AnnotationDocument { Canvas = new CanvasInfo(10, 10), Objects = [Callout(new PixelPoint(1, 2))] });
+
+        Assert.DoesNotContain("padding", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Json_RoundTrips()
     {
         var document = new AnnotationDocument { Canvas = new CanvasInfo(320, 200), Objects = [Callout(new PixelPoint(1, 2), "a\nb")] };

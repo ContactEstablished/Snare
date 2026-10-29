@@ -8,7 +8,8 @@ public static class HotkeyCapture
 {
     /// <summary>
     /// The gesture for <paramref name="key"/> with <paramref name="modifiers"/>, or null for a key
-    /// a hotkey can't use (or a modifier on its own, while Matt is still pressing the combination).
+    /// a hotkey can't use (a modifier on its own while Matt is still pressing the combination, or a
+    /// numpad digit, which would register the top-row key instead).
     /// Pass <c>e.Key == Key.System ? e.SystemKey : e.Key</c>, since Alt combinations arrive as System.
     /// </summary>
     public static HotkeyGesture? FromKey(Key key, ModifierKeys modifiers)
@@ -18,7 +19,6 @@ public static class HotkeyCapture
             Key.Snapshot => HotkeyGesture.PrintScreen,
             >= Key.A and <= Key.Z => ((char)('A' + (key - Key.A))).ToString(),
             >= Key.D0 and <= Key.D9 => ((char)('0' + (key - Key.D0))).ToString(),
-            >= Key.NumPad0 and <= Key.NumPad9 => ((char)('0' + (key - Key.NumPad0))).ToString(),
             >= Key.F1 and <= Key.F24 => $"F{key - Key.F1 + 1}",
             _ => null,
         };

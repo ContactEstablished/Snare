@@ -12,6 +12,9 @@ public sealed partial class ResizeViewModel : ObservableObject
 {
     public const int MaxSide = 32_767;
 
+    /// <summary>About 480 MB of pixels: larger exports can't be rendered in memory.</summary>
+    public const long MaxPixels = 120_000_000;
+
     private readonly PixelSize _natural;
     private bool _updating;
 
@@ -75,7 +78,7 @@ public sealed partial class ResizeViewModel : ObservableObject
         }
     }
 
-    private bool IsValid => Width is >= 1 and <= MaxSide && Height is >= 1 and <= MaxSide;
+    private bool IsValid => Width is >= 1 and <= MaxSide && Height is >= 1 and <= MaxSide && (long)Width * Height <= MaxPixels;
 
     [RelayCommand(CanExecute = nameof(IsValid))]
     private void Apply() => Closed?.Invoke(this, new PixelSize(Width, Height));

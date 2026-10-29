@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Snare.Core.Geometry;
 
 namespace Snare.Core.Annotations;
@@ -19,5 +20,6 @@ public sealed record CalloutAnnotation(
     : AnnotationObject(Id)
 {
     /// <summary>Space between the bubble's edge and its text.</summary>
+    [JsonIgnore]
     public float Padding => Math.Max(6, FontSize * 0.5f);
 }

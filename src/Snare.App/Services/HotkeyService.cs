@@ -46,18 +46,24 @@ public sealed class HotkeyService(IOptionsMonitor<SnareOptions> options, ILogger
         });
         _window.AddHook(WndProc);
         Register();
-        _onChange = options.OnChange((_, _) => _window?.Dispatcher.BeginInvoke(Register));
+        _onChange = options.OnChange((_, _) => _window?.Dispatcher.BeginInvoke(() => Register()));
     }
 
-    /// <summary>Registers the hotkeys in the current settings, if they differ from what's registered.</summary>
-    public void Register()
+    /// <summary>Registers the hotkeys in the current settings (or <paramref name="hotkeys"/>), if they differ from what's registered.</summary>
+    public void Register(HotkeyOptions? hotkeys = null)
     {
         if (_window is null || _suspended)
         {
             return;
         }
 
-        var bindings = options.CurrentValue.Hotkeys.Bindings();
+        hotkeys ??= options.CurrentValue.Hotkeys;
+        foreach (var problem in hotkeys.Problems())
+        {
+            logger.LogWarning("Hotkey setting ignored or doubtful: {Problem}", problem);
+        }
+
+        var bindings = hotkeys.Bindings();
         var key = string.Join(";", bindings.Select(b => $"{b.Action}={b.Gesture}"));
         if (key == _current)
         {
@@ -103,11 +109,11 @@ public sealed class HotkeyService(IOptionsMonitor<SnareOptions> options, ILogger
         _suspended = true;
     }
 
-    /// <summary>Registers the current settings again after <see cref="Suspend"/>.</summary>
-    public void Resume()
+    /// <summary>Registers again after <see cref="Suspend"/>: <paramref name="hotkeys"/> when just saved, else the current settings.</summary>
+    public void Resume(HotkeyOptions? hotkeys = null)
     {
         _suspended = false;
-        Register();
+        Register(hotkeys);
     }
 
     public void Dispose()

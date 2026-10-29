@@ -287,6 +287,14 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
         var json = AnnotationJson.Serialize(document);
         if (json == _exportedJson)
         {
+            // Undone back to the export: the layer autosave stored must match it too, or the
+            // undone edit would come back when the capture is reopened.
+            if (json != _savedJson)
+            {
+                await _store.SaveAnnotationsAsync(Capture.Id, document);
+                _savedJson = json;
+            }
+
             Status = "Saved";
             return true;
         }

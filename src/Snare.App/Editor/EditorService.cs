@@ -17,12 +17,27 @@ public sealed class EditorService(
     private readonly Dictionary<Guid, EditorWindow> _open = [];
     private readonly HashSet<Guid> _opening = [];
 
-    /// <summary>Tray → Exit: every open editor saves its edits first.</summary>
-    public async Task SaveAllBeforeExitAsync()
+    /// <summary>Tray → Exit: every open editor saves its edits first. Returns how many couldn't update their image.</summary>
+    public async Task<int> SaveAllBeforeExitAsync()
     {
+        var failed = 0;
         foreach (var window in _open.Values.ToList())
         {
-            await window.SaveBeforeExitAsync();
+            if (!await window.SaveBeforeExitAsync())
+            {
+                failed++;
+            }
+        }
+
+        return failed;
+    }
+
+    /// <summary>After Exit is confirmed, editors close without asking.</summary>
+    public void AllowCloseAll()
+    {
+        foreach (var window in _open.Values)
+        {
+            window.AllowClose();
         }
     }
 

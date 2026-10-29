@@ -21,6 +21,8 @@ public sealed class LibraryBackup(
     public const string OriginalsEntry = "originals";
     private const string Prefix = "Snare-backup-";
 
+    private readonly SemaphoreSlim _one = new(1, 1); // two clicks would pick the same name
+
     public static string DefaultFolder =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Snare Backups");
 
@@ -37,8 +39,18 @@ public sealed class LibraryBackup(
     /// Writes a new backup and prunes old ones. The zip appears under its final name only once
     /// it's complete; on any failure nothing is left behind.
     /// </summary>
-    public Task<FileInfo> CreateAsync(CancellationToken cancellationToken = default) =>
-        Task.Run(() => Create(cancellationToken), cancellationToken);
+    public async Task<FileInfo> CreateAsync(CancellationToken cancellationToken = default)
+    {
+        await _one.WaitAsync(cancellationToken);
+        try
+        {
+            return await Task.Run(() => Create(cancellationToken), cancellationToken);
+        }
+        finally
+        {
+            _one.Release();
+        }
+    }
 
     private FileInfo Create(CancellationToken cancellationToken)
     {
@@ -49,6 +61,11 @@ public sealed class LibraryBackup(
 
         var folder = Folder;
         Directory.CreateDirectory(folder);
+        foreach (var stale in Directory.EnumerateFiles(folder, Prefix + "*.partial"))
+        {
+            TryDelete(stale); // left by a backup that was cut off
+        }
+
         var path = UniquePath(folder, clock.GetLocalNow());
         var partial = path + ".partial";
         var databaseCopy = Path.Combine(Path.GetTempPath(), $"snare-backup-{Guid.NewGuid():N}.db");
@@ -60,11 +77,19 @@ public sealed class LibraryBackup(
                 zip.CreateEntryFromFile(databaseCopy, DatabaseEntry, CompressionLevel.Optimal);
                 if (Directory.Exists(paths.OriginalsFolder))
                 {
-                    foreach (var original in Directory.EnumerateFiles(paths.OriginalsFolder))
+                    // *.png only: a capture being saved right now has a temp file here too.
+                    foreach (var original in Directory.EnumerateFiles(paths.OriginalsFolder, "*.png"))
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        // PNGs are already compressed; storing them is as small and much faster.
-                        zip.CreateEntryFromFile(original, $"{OriginalsEntry}/{Path.GetFileName(original)}", CompressionLevel.NoCompression);
+                        try
+                        {
+                            // PNGs are already compressed; storing them is as small and much faster.
+                            zip.CreateEntryFromFile(original, $"{OriginalsEntry}/{Path.GetFileName(original)}", CompressionLevel.NoCompression);
+                        }
+                        catch (FileNotFoundException)
+                        {
+                            // Emptied from the Trash while the backup ran.
+                        }
                     }
                 }
             }
@@ -93,9 +118,16 @@ public sealed class LibraryBackup(
         var builder = new SqliteConnectionStringBuilder { DataSource = paths.DatabasePath, Mode = SqliteOpenMode.ReadOnly, Pooling = false };
         using var source = new SqliteConnection(builder.ToString());
         using var target = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = destination, Pooling = false }.ToString());
-        source.Open();
-        target.Open();
-        source.BackupDatabase(target);
+        try
+        {
+            source.Open();
+            target.Open();
+            source.BackupDatabase(target);
+        }
+        catch (SqliteException ex)
+        {
+            throw new IOException($"Couldn't read the library database: {ex.Message}", ex);
+        }
     }
 
     /// <summary>Keeps the <see cref="Keep"/> newest backups; never touches other files.</summary>
