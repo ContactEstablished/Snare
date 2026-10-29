@@ -79,7 +79,7 @@ The app is C# on .NET 10 with WPF, using Windows' own capture, OCR and media API
 | Tray icon | H.NotifyIcon.Wpf | WPF-native tray and context menu | Decided |
 | Logging | Serilog, rolling file | Diagnose capture bugs after the fact | Decided |
 | Tests | xUnit v3 | Unit, golden-image and fixture tests | Decided |
-| Packaging | Self-contained `dotnet publish` into `%LOCALAPPDATA%\Programs\Snare` via `tools/publish.ps1`; no installer, no auto-update | Single user, no distribution | Decided |
+| Packaging | MSIX: `tools/build-msix.ps1` builds a self-contained package signed with a self-signed `CN=Snare Dev` certificate; `tools/install-msix.ps1` trusts the certificate (one admin prompt) and installs it. File and registry write virtualization are off, so the library stays in `%LOCALAPPDATA%\Snare` and survives an uninstall. Start with Windows uses the package's startup task. `tools/publish.ps1` still makes an unpackaged copy. No auto-update. FFmpeg is not bundled | Single user | Decided (MSIX added Oct 29, 2026) |
 
 Target framework: `net10.0-windows10.0.22621.0` for Windows-facing projects; Core and Rendering target plain `net10.0`. Package versions live in `Directory.Packages.props`.
 
@@ -110,7 +110,8 @@ Snare/
     Snare.Capture.Tests/     stitching fixtures
     Snare.Library.Tests/     SQLite + FTS tests
   tools/ffmpeg/   ffmpeg.exe, downloaded locally (not committed)
-  tools/publish.ps1
+  tools/publish.ps1   unpackaged copy in %LOCALAPPDATA%\Programs\Snare
+  tools/build-msix.ps1, install-msix.ps1, msix/   the MSIX package
   docs/           this plan; spec.md and task.md per phase
   Directory.Build.props      TFMs, nullable, warnings as errors
   Directory.Packages.props   central package versions

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MSIX manifest for Snare. tools/build-msix.ps1 fills in $VERSION$ and $PUBLISHER$. -->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap desktop desktop6 rescap">
+
+  <Identity Name="Snare" Publisher="$PUBLISHER$" Version="$VERSION$" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Snare</DisplayName>
+    <PublisherDisplayName>Matt Wilson</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <!-- Write to the real %LOCALAPPDATA%\Snare and HKCU, so the library is shared with a
+         published copy and survives an uninstall. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="Snare" Executable="Snare.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Snare"
+        Description="Screen capture, scrolling capture and recording"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <!-- Settings > Start with Windows turns this on and off (PackagedStartup). -->
+        <desktop:Extension Category="windows.startupTask" Executable="Snare.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="SnareStartup" Enabled="false" DisplayName="Snare" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+    <!-- Recording reads the mic and webcam in-process; packaged apps must declare them. -->
+    <DeviceCapability Name="microphone" />
+    <DeviceCapability Name="webcam" />
+  </Capabilities>
+</Package>

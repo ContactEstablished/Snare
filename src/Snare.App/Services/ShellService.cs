@@ -45,7 +45,7 @@ public sealed class ShellService(
             Exit: () => _ = ExitAsync()));
         tray.UpdateHotkeyLabels(options.CurrentValue.Hotkeys);
         options.OnChange((value, _) => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => tray.UpdateHotkeyLabels(value.Hotkeys)));
-        settings.ApplyStartWithWindows(options.CurrentValue.StartWithWindows);
+        _ = settings.ApplyStartWithWindowsAsync(options.CurrentValue.StartWithWindows);
 
         // Phase 0 harnesses stay until their manual checks in docs/phases/0-foundation/task.md are ticked.
         tray.AddSpike("Freeze overlay", freezeOverlay.Run);

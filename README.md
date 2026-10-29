@@ -2,7 +2,7 @@
 
 A personal Snagit-style screen capture app for Windows. Region, window and scrolling capture; an annotation editor with redaction and blur; video recording with mic and webcam; and a searchable library of plain PNG, JPG and MP4 files.
 
-**Status:** Phase 0, foundation and spikes. The solution builds and runs as a tray app; capture arrives in Phase 1. See the [build plan](docs/build-plan.md).
+**Status:** Phases 0–6 are code-complete; the hand checks in each phase's `task.md` are next. See the [build plan](docs/build-plan.md).
 
 ## Requirements
 
@@ -22,6 +22,15 @@ dotnet run --project src/Snare.App
 Snare starts in the system tray. Logs are written to `%LOCALAPPDATA%\Snare\logs`.
 
 The solution builds for x64 only, because ScreenRecorderLib is a native library. The exe is in `src\Snare.App\bin\x64\Debug\net10.0-windows10.0.22621.0\`.
+
+## Install
+
+```powershell
+./tools/build-msix.ps1     # publishes, packs and signs artifacts\msix\Snare-<version>.msix
+./tools/install-msix.ps1   # first time: trusts the signing certificate (one admin prompt); then installs
+```
+
+Snare then appears in the Start menu. Run both again to update. The package is signed with a self-signed `CN=Snare Dev` certificate kept in your user certificate store. The library and settings stay in `%LOCALAPPDATA%\Snare` when Snare is updated or uninstalled. FFmpeg isn't bundled: install it with `winget install Gyan.FFmpeg` for video thumbnails, trimming and GIF export.
 
 ## Projects
 

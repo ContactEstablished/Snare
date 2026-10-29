@@ -53,11 +53,29 @@ public sealed class SettingsService(
     }
 
     /// <summary>
-    /// Makes the Run key match the setting. Only the installed copy (see <see cref="InstallFolder"/>)
-    /// writes it, so a build run from a worktree never ends up in Matt's sign-in.
+    /// Makes Start with Windows match the setting: the package's startup task for the MSIX install,
+    /// otherwise the Run key. Only the published copy (see <see cref="InstallFolder"/>) writes the Run
+    /// key, so a build run from a worktree never ends up in Matt's sign-in.
     /// </summary>
-    public void ApplyStartWithWindows(bool enabled)
+    public async Task ApplyStartWithWindowsAsync(bool enabled)
     {
+        if (PackagedStartup.IsPackaged)
+        {
+            try
+            {
+                if (await PackagedStartup.SetAsync(enabled) != enabled)
+                {
+                    logger.LogWarning("Start with Windows is off in Task Manager > Startup apps; Snare can't turn it back on");
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Could not update the startup task");
+            }
+
+            return;
+        }
+
         if (Environment.ProcessPath is not { } running || !IsInstalledCopy(running, InstallFolder))
         {
             logger.LogInformation("Not the installed copy: leaving Start with Windows alone (setting is {Enabled})", enabled);
@@ -110,7 +128,7 @@ public sealed class SettingsService(
     {
         await store.SaveAsync(edited);
         _savedHotkeys = edited.Hotkeys;
-        ApplyStartWithWindows(edited.StartWithWindows);
+        await ApplyStartWithWindowsAsync(edited.StartWithWindows);
         logger.LogInformation("Settings saved to {Path}", store.FilePath);
     }
 }
