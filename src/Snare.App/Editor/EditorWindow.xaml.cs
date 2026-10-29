@@ -30,6 +30,12 @@ internal sealed partial class EditorWindow : Window
         CanvasHost.Children.Insert(0, _canvas);
 
         viewModel.PickSaveAsPath = PickSaveAsPath;
+        viewModel.PickSize = (current, natural) =>
+        {
+            var dialog = new ResizeWindow(new ResizeViewModel(current, natural)) { Owner = this };
+            dialog.ShowDialog();
+            return dialog.Result;
+        };
         viewModel.ConfirmDiscardOriginal = ConfirmDiscardOriginal;
         viewModel.TextEditRequested += (_, text) => BeginTextEdit(text);
         viewModel.CloseRequested += (_, _) => Close();
@@ -240,6 +246,19 @@ internal sealed partial class EditorWindow : Window
             DragDrop.DoDragDrop(DragHandle, data, DragDropEffects.Copy);
         }
     }
+
+    /// <summary>
+    /// Tray → Exit: finishes typing and saves unexported edits (which also keeps them). False when
+    /// the image couldn't be updated; Exit then asks. Shutdown ignores a cancelled Closing, so this
+    /// runs first, and <see cref="AllowClose"/> lets the window go without asking again.
+    /// </summary>
+    public async Task<bool> SaveBeforeExitAsync()
+    {
+        CommitTextEdit();
+        return !_viewModel.NeedsExport || await _viewModel.SaveAsync();
+    }
+
+    public void AllowClose() => _closingAfterSave = true;
 
     private async void OnClosing(object? sender, CancelEventArgs e)
     {

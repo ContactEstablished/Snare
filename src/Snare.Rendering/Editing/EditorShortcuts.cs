@@ -17,6 +17,7 @@ public static class EditorShortcuts
         ['B'] = EditorTool.Blur,
         ['X'] = EditorTool.Pixelate,
         ['N'] = EditorTool.Step,
+        ['K'] = EditorTool.Callout,
         ['I'] = EditorTool.Eyedropper,
         ['C'] = EditorTool.Crop,
     };

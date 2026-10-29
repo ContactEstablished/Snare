@@ -57,12 +57,24 @@ public class ReconcileTests
     }
 
     [Fact]
+    public async Task MissingThumbnails_AreRebuiltFromTheExport()
+    {
+        using var library = new TempLibrary();
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(20, 20, 0xFF336699), CaptureSource.Unknown, At, cancellationToken: Ct);
+        File.Delete(library.Store.ThumbnailPathFor(record.Id)); // as after restoring a backup
+
+        await library.Store.ReconcileAsync(Ct);
+
+        Assert.True(File.Exists(library.Store.ThumbnailPathFor(record.Id)));
+    }
+
+    [Fact]
     public async Task AFileDatedBefore1970_IsStillImported()
     {
         using var library = new TempLibrary();
         await library.Store.ListAsync(Ct);
         Directory.CreateDirectory(library.Paths.LibraryRoot);
-        var old = Path.Combine(library.Paths.LibraryRoot, "ancient.png");
+        var old = Path.Combine(library.Paths.LibraryRoot, "1960-01-01_000000.png");
         using (var bitmap = PixelBufferImages.ToBitmap(PixelBuffer.Filled(4, 4, 0xFF000000)))
         {
             await File.WriteAllBytesAsync(old, ImageCodec.EncodePng(bitmap), Ct);
@@ -76,20 +88,25 @@ public class ReconcileTests
     }
 
     [Fact]
-    public async Task UnknownImagesUnderTheLibrary_AreImportedOnce()
+    public async Task UnknownSnareNamedImagesUnderTheLibrary_AreImportedOnce_OtherPicturesAreLeftAlone()
     {
         using var library = new TempLibrary();
         await library.Store.ListAsync(Ct); // create the database
         var folder = Path.Combine(library.Paths.LibraryRoot, "2026", "09");
         Directory.CreateDirectory(folder);
-        var dropped = Path.Combine(folder, "from-another-tool.png");
+        var dropped = Path.Combine(folder, "2026-09-14_101500_2.png");
+        using (var photo = PixelBufferImages.ToBitmap(PixelBuffer.Filled(8, 8, 0xFF00FF00)))
+        {
+            await File.WriteAllBytesAsync(Path.Combine(folder, "IMG_2041.jpg"), ImageCodec.EncodeJpeg(photo, 90), Ct);
+        }
+
         using (var bitmap = PixelBufferImages.ToBitmap(PixelBuffer.Filled(30, 10, 0xFF1F6FEB)))
         {
             await File.WriteAllBytesAsync(dropped, ImageCodec.EncodePng(bitmap), Ct);
         }
 
         await File.WriteAllTextAsync(Path.Combine(folder, "notes.txt"), "not an image", Ct);
-        await File.WriteAllTextAsync(Path.Combine(folder, "broken.png"), "not really a png", Ct);
+        await File.WriteAllTextAsync(Path.Combine(folder, "2026-09-14_101501.png"), "not really a png", Ct);
 
         var first = await library.Store.ReconcileAsync(Ct);
         var second = await library.Store.ReconcileAsync(Ct);
@@ -98,7 +115,7 @@ public class ReconcileTests
         Assert.Equal(0, second.Imported);
         var imported = Assert.Single(await library.Store.ListAsync(Ct));
         Assert.Equal(Path.GetFullPath(dropped), imported.FilePath, ignoreCase: true);
-        Assert.Equal(("imported", "from-another-tool"), (imported.SourceApp, imported.Title));
+        Assert.Equal(("imported", null), (imported.SourceApp, imported.Title));
         Assert.Equal((30, 10), (imported.Width, imported.Height));
         Assert.True(File.Exists(imported.OriginalPath));
         Assert.True(File.Exists(library.Store.ThumbnailPathFor(imported.Id)));

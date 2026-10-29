@@ -1,37 +1,37 @@
 using System.Diagnostics;
 using System.Windows.Interop;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Snare.Core.Hotkeys;
+using Snare.Core.Options;
 using Snare.Interop;
 
 namespace Snare.App.Services;
 
 /// <summary>
-/// Registers Snare's global hotkeys on a hidden message-only window and raises
+/// Registers Snare's global hotkeys (from Settings) on a hidden message-only window and raises
 /// <see cref="Pressed"/> when one fires. Failed registrations become <see cref="Conflicts"/>.
+/// When the hotkey settings change, everything is registered again.
 /// </summary>
-public sealed class HotkeyService(ILogger<HotkeyService> logger) : IDisposable
+public sealed class HotkeyService(IOptionsMonitor<SnareOptions> options, ILogger<HotkeyService> logger) : IDisposable
 {
     private const int WmHotkey = 0x0312;
     private static readonly nint MessageOnlyParent = new(-3);
 
-    private static readonly HotkeyBinding[] Bindings =
-    [
-        new(1, HotkeyAction.CaptureImage, HotkeyModifiers.None, "PrtSc"),
-        new(2, HotkeyAction.RecordVideo, HotkeyModifiers.Shift, "Shift+PrtSc"),
-        new(3, HotkeyAction.CaptureScrolling, HotkeyModifiers.Control | HotkeyModifiers.Shift, "Ctrl+Shift+PrtSc"),
-        new(4, HotkeyAction.RepeatLastRegion, HotkeyModifiers.Control, "Ctrl+PrtSc"),
-        new(5, HotkeyAction.GrabText, HotkeyModifiers.Control | HotkeyModifiers.Alt, "Ctrl+Alt+PrtSc"),
-    ];
-
-    private readonly List<HotkeyBinding> _registered = [];
+    private readonly Dictionary<int, (HotkeyAction Action, HotkeyGesture Gesture)> _registered = [];
     private HwndSource? _window;
+    private IDisposable? _onChange;
+    private string _current = "";
+    private bool _suspended;
 
     public event EventHandler<HotkeyAction>? Pressed;
 
+    /// <summary>Raised after registering again, with the new <see cref="Conflicts"/>.</summary>
+    public event EventHandler? ConflictsChanged;
+
     public IReadOnlyList<HotkeyConflict> Conflicts { get; private set; } = [];
 
-    /// <summary>Registers every hotkey. Call on the UI thread.</summary>
+    /// <summary>Registers every hotkey and follows setting changes. Call on the UI thread.</summary>
     public void Start()
     {
         if (_window is not null)
@@ -45,19 +45,46 @@ public sealed class HotkeyService(ILogger<HotkeyService> logger) : IDisposable
             WindowStyle = 0,
         });
         _window.AddHook(WndProc);
+        Register();
+        _onChange = options.OnChange((_, _) => _window?.Dispatcher.BeginInvoke(() => Register()));
+    }
 
-        var failed = new List<HotkeyBinding>();
-        foreach (var binding in Bindings)
+    /// <summary>Registers the hotkeys in the current settings (or <paramref name="hotkeys"/>), if they differ from what's registered.</summary>
+    public void Register(HotkeyOptions? hotkeys = null)
+    {
+        if (_window is null || _suspended)
         {
-            var modifiers = binding.Modifiers | HotkeyModifiers.NoRepeat;
-            if (GlobalHotkeys.TryRegister(_window.Handle, binding.Id, modifiers, GlobalHotkeys.PrintScreenKey))
+            return;
+        }
+
+        hotkeys ??= options.CurrentValue.Hotkeys;
+        foreach (var problem in hotkeys.Problems())
+        {
+            logger.LogWarning("Hotkey setting ignored or doubtful: {Problem}", problem);
+        }
+
+        var bindings = hotkeys.Bindings();
+        var key = string.Join(";", bindings.Select(b => $"{b.Action}={b.Gesture}"));
+        if (key == _current)
+        {
+            return;
+        }
+
+        UnregisterAll();
+        _current = key;
+        var failed = new List<HotkeyGesture>();
+        foreach (var (action, gesture) in bindings)
+        {
+            var id = (int)action + 1;
+            if (GlobalHotkeys.VirtualKeyFor(gesture.Key) is { } virtualKey
+                && GlobalHotkeys.TryRegister(_window.Handle, id, ModifiersFor(gesture) | HotkeyModifiers.NoRepeat, virtualKey))
             {
-                _registered.Add(binding);
-                logger.LogInformation("Registered hotkey {Gesture} for {Action}", binding.Gesture, binding.Action);
+                _registered[id] = (action, gesture);
+                logger.LogInformation("Registered hotkey {Gesture} for {Action}", gesture, action);
             }
             else
             {
-                failed.Add(binding);
+                failed.Add(gesture);
             }
         }
 
@@ -67,27 +94,60 @@ public sealed class HotkeyService(ILogger<HotkeyService> logger) : IDisposable
             logger.LogWarning("Hotkey {Gesture} not registered: {Summary}. {Advice}",
                 conflict.Gesture, conflict.Summary, conflict.Advice);
         }
+
+        ConflictsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Unregisters everything while Settings is open, so pressing a hotkey there records it instead of firing it.</summary>
+    public void Suspend()
+    {
+        if (_window is not null)
+        {
+            UnregisterAll();
+        }
+
+        _suspended = true;
+    }
+
+    /// <summary>Registers again after <see cref="Suspend"/>: <paramref name="hotkeys"/> when just saved, else the current settings.</summary>
+    public void Resume(HotkeyOptions? hotkeys = null)
+    {
+        _suspended = false;
+        Register(hotkeys);
     }
 
     public void Dispose()
     {
+        _onChange?.Dispose();
         if (_window is null)
         {
             return;
         }
 
-        foreach (var binding in _registered)
-        {
-            GlobalHotkeys.Unregister(_window.Handle, binding.Id);
-        }
-
-        _registered.Clear();
+        UnregisterAll();
         _window.RemoveHook(WndProc);
         _window.Dispose();
         _window = null;
     }
 
-    private static List<HotkeyConflict> Diagnose(List<HotkeyBinding> failed)
+    private void UnregisterAll()
+    {
+        foreach (var id in _registered.Keys)
+        {
+            GlobalHotkeys.Unregister(_window!.Handle, id);
+        }
+
+        _registered.Clear();
+        _current = "";
+    }
+
+    private static HotkeyModifiers ModifiersFor(HotkeyGesture gesture) =>
+        (gesture.Control ? HotkeyModifiers.Control : 0)
+        | (gesture.Alt ? HotkeyModifiers.Alt : 0)
+        | (gesture.Shift ? HotkeyModifiers.Shift : 0)
+        | (gesture.Win ? HotkeyModifiers.Windows : 0);
+
+    private static List<HotkeyConflict> Diagnose(List<HotkeyGesture> failed)
     {
         if (failed.Count == 0)
         {
@@ -104,14 +164,13 @@ public sealed class HotkeyService(ILogger<HotkeyService> logger) : IDisposable
         var snippingOwnsPrintScreen = SnippingToolSetting.IsPrintScreenBoundToSnipping();
 
         return failed
-            .Select(b => HotkeyConflictDiagnosis.Diagnose(
-                b.Gesture, b.Modifiers == HotkeyModifiers.None, processNames, snippingOwnsPrintScreen))
+            .Select(g => HotkeyConflictDiagnosis.Diagnose(g.ToString(), g.IsPlainPrintScreen, processNames, snippingOwnsPrintScreen))
             .ToList();
     }
 
     private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
     {
-        if (msg == WmHotkey && Bindings.FirstOrDefault(b => b.Id == (int)wParam) is { } binding)
+        if (msg == WmHotkey && _registered.TryGetValue((int)wParam, out var binding))
         {
             handled = true;
             logger.LogInformation("Hotkey {Gesture} pressed", binding.Gesture);
@@ -120,6 +179,4 @@ public sealed class HotkeyService(ILogger<HotkeyService> logger) : IDisposable
 
         return 0;
     }
-
-    private sealed record HotkeyBinding(int Id, HotkeyAction Action, HotkeyModifiers Modifiers, string Gesture);
 }

@@ -97,6 +97,7 @@
                     <RadioButton Tag="{x:Static editing:EditorTool.Pen}" Content="Pen" ToolTip="Pen (P)" />
                     <RadioButton Tag="{x:Static editing:EditorTool.Text}" Content="Text" ToolTip="Text (T)" />
                     <RadioButton Tag="{x:Static editing:EditorTool.Step}" Content="Step" ToolTip="Step numbers (N)" />
+                    <RadioButton Tag="{x:Static editing:EditorTool.Callout}" Content="Callout" ToolTip="Callout: drag the bubble, type, then drag its tail (K)" />
                     <RadioButton Tag="{x:Static editing:EditorTool.Redact}" Content="Redact" ToolTip="Redact: solid, secure (D)" />
                     <RadioButton Tag="{x:Static editing:EditorTool.Blur}" Content="Blur" ToolTip="Blur: obscures, not secure (B)" />
                     <RadioButton Tag="{x:Static editing:EditorTool.Pixelate}" Content="Pixelate" ToolTip="Pixelate: obscures, not secure (X)" />
@@ -148,7 +149,7 @@
                     <Slider Minimum="8" Maximum="120" Value="{Binding FontSize}" />
                     <TextBlock Text="{Binding FontSize}" Width="28" VerticalAlignment="Center" Margin="4,0" />
                     <CheckBox Content="Bold" IsChecked="{Binding Bold}" />
-                    <CheckBox Content="Background" IsChecked="{Binding TextBackground}" />
+                    <CheckBox Content="Background" IsChecked="{Binding TextBackground}" Visibility="{Binding ShowsTextBackground, Converter={StaticResource Visible}}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Visibility="{Binding ShowsStrength, Converter={StaticResource Visible}}">
                     <TextBlock Text="Strength" Style="{StaticResource Label}" />
@@ -159,6 +160,7 @@
                     <Button Content="Apply crop" Command="{Binding ApplyCropCommand}" ToolTip="Enter" />
                 </StackPanel>
                 <Button Content="Remove crop" Command="{Binding ClearCropCommand}" Visibility="{Binding HasCrop, Converter={StaticResource Visible}}" />
+                <Button Content="Resize…" Command="{Binding ResizeCommand}" ToolTip="Change the exported image's size" />
             </StackPanel>
         </Border>
 

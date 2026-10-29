@@ -161,7 +161,7 @@ Annotations are a versioned JSON document of vector objects drawn over the origi
 - Export strips metadata chunks. JPG quality defaults to 90.
 - Delete is soft, with a Trash view. Emptying Trash removes the files.
 - Originals stay as plain PNGs in `%LOCALAPPDATA%`; no DPAPI. Each capture has a **Discard original** action that makes the export permanent and ends re-editing. The editor suggests it when a capture has a Redact object.
-- Files added, moved or deleted outside the app are reconciled on startup (Phase 3).
+- Files added, moved or deleted outside the app are reconciled on startup (Phase 3). Only files named like Snare's exports are imported (decided in Phase 6), so a library folder full of photos is left alone.
 
 ## Image capture
 
@@ -398,7 +398,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 - [x] Stitcher fixture tests pass (synthetic pages and a sequence recorded in headless Edge)
 - [ ] Automatic mode works in Chrome and Edge, after a UI Automation spike
 
-**Phase 6: Polish**
+**Phase 6: Polish** (code-complete Oct 29, 2026; manual checks in [task.md](phases/6-polish/task.md))
 
 - [ ] Settings window for hotkeys, library folder and defaults
 - [ ] Start with Windows
@@ -504,6 +504,14 @@ Every question below was answered by Matt on Oct 28, 2026. The answers are recor
 - [x] Which apps matter most for scrolling capture? **Chrome and Edge automatic; everything else manual.**
 - [x] Is horizontal scrolling needed? **No.**
 - [x] What is the longest capture Matt expects to take? **Capped at 30,000 px.**
+
+**Before Phase 6** (asked Oct 29, 2026)
+
+- [x] When the library folder changes, what happens to existing captures? **They stay where they are; new captures go to the new folder.**
+- [x] What does the one-click backup include? **A zip of library.db and the originals folder.**
+- [x] Where do backups go, and how many are kept? **`Documents\Snare Backups` by default (changeable in Settings), named by date; the 10 newest are kept.**
+- [x] Start with Windows by default? **On (the per-user Run key); a toggle in Settings.**
+- [x] Startup import scans the library folder, which Settings can now change. What should it import? **Only files named like Snare's exports (`yyyy-MM-dd_HHmmss[_n]`); other pictures are left alone.** (Raised by the Phase 6 review.)
 
 **Process**
 

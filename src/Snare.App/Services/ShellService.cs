@@ -1,10 +1,14 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Snare.App.Capture;
+using Snare.App.Editor;
 using Snare.App.Library;
 using Snare.App.Recording;
 using Snare.App.Scrolling;
+using Snare.App.Settings;
 using Snare.App.Spikes;
 using Snare.Core.Hotkeys;
+using Snare.Core.Options;
 using Snare.Interop;
 
 namespace Snare.App.Services;
@@ -15,13 +19,18 @@ public sealed class ShellService(
     HotkeyService hotkeys,
     CaptureService capture,
     RecordingService recording,
+    EditorService editors,
     ScrollCaptureService scrolling,
     LibraryWindowService library,
+    SettingsService settings,
+    IOptionsMonitor<SnareOptions> options,
     FreezeOverlaySpike freezeOverlay,
     SkiaCanvasSpike skiaCanvas,
     RecordingSpikeRunner recordingSpike,
     ILogger<ShellService> logger)
 {
+    private bool _exiting;
+
     public void Start()
     {
         tray.Show(new TrayMenuActions(
@@ -30,7 +39,13 @@ public sealed class ShellService(
             GrabText: () => _ = capture.GrabTextAsync(),
             RecordVideo: () => _ = recording.ToggleAsync(),
             ScrollingCapture: () => _ = scrolling.ToggleAsync(),
-            OpenLibrary: library.Show));
+            OpenLibrary: library.Show,
+            OpenSettings: settings.Show,
+            BackUp: () => _ = settings.BackUpAsync(),
+            Exit: () => _ = ExitAsync()));
+        tray.UpdateHotkeyLabels(options.CurrentValue.Hotkeys);
+        options.OnChange((value, _) => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => tray.UpdateHotkeyLabels(value.Hotkeys)));
+        settings.ApplyStartWithWindows(options.CurrentValue.StartWithWindows);
 
         // Phase 0 harnesses stay until their manual checks in docs/phases/0-foundation/task.md are ticked.
         tray.AddSpike("Freeze overlay", freezeOverlay.Run);
@@ -41,8 +56,78 @@ public sealed class ShellService(
         WarnIfHdr();
 
         hotkeys.Pressed += OnHotkeyPressed;
+        hotkeys.ConflictsChanged += (_, _) => tray.ShowHotkeyConflicts(hotkeys.Conflicts);
         hotkeys.Start();
-        tray.ShowHotkeyConflicts(hotkeys.Conflicts);
+    }
+
+    /// <summary>
+    /// Tray → Exit. A recording in progress is stopped and saved, or discarded, as Matt chooses
+    /// (or he cancels and keeps recording). Open editors save their edits. Then Snare quits.
+    /// </summary>
+    public async Task ExitAsync()
+    {
+        if (_exiting)
+        {
+            return;
+        }
+
+        _exiting = true;
+        try
+        {
+            if (recording.IsRecording)
+            {
+                var answer = System.Windows.MessageBox.Show(
+                    """
+                    A recording is in progress.
+
+                    Yes: stop it and save it to the library, then exit.
+                    No: discard it and exit.
+                    Cancel: keep recording.
+                    """,
+                    "Exit Snare",
+                    System.Windows.MessageBoxButton.YesNoCancel,
+                    System.Windows.MessageBoxImage.Warning,
+                    System.Windows.MessageBoxResult.Cancel);
+                if (answer == System.Windows.MessageBoxResult.Cancel)
+                {
+                    return;
+                }
+
+                await (answer == System.Windows.MessageBoxResult.Yes ? recording.StopAsync(openPlayer: false) : recording.DiscardAsync());
+            }
+
+            try
+            {
+                await recording.WhenFinishedAsync(); // a recording stopped just before Exit may still be saving
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "A recording didn't finish saving before exit");
+            }
+
+            var failed = await editors.SaveAllBeforeExitAsync();
+            if (failed > 0 && System.Windows.MessageBox.Show(
+                    $"""
+                    {failed} open editor{(failed == 1 ? "" : "s")} couldn't update the library image (see the editor's status bar). Edits are kept where possible.
+
+                    Exit anyway?
+                    """,
+                    "Exit Snare",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning,
+                    System.Windows.MessageBoxResult.No) != System.Windows.MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            editors.AllowCloseAll();
+            logger.LogInformation("Exiting from the tray");
+            System.Windows.Application.Current.Shutdown();
+        }
+        finally
+        {
+            _exiting = false;
+        }
     }
 
     // HDR makes GDI grabs look washed out (build plan: Monitors and DPI). Decided: warn, don't block.

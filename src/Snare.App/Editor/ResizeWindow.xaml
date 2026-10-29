@@ -1,0 +1,56 @@
+<Window x:Class="Snare.App.Editor.ResizeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Snare.App.Editor"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance local:ResizeViewModel}"
+        x:ClassModifier="internal"
+        Title="Resize"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="#FF1E1E1E"
+        Foreground="White"
+        FontFamily="Segoe UI"
+        FontSize="13">
+    <Window.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#FF2B2B2B" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#FF444444" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="Width" Value="70" />
+            <Setter Property="CaretBrush" Value="White" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+    </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
+    </Window.InputBindings>
+
+    <StackPanel Margin="20">
+        <TextBlock Text="{Binding NaturalText}" Foreground="#AAFFFFFF" Margin="0,0,0,10" />
+        <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Width" Width="56" VerticalAlignment="Center" />
+            <TextBox Text="{Binding Width, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Text="Height" Width="56" VerticalAlignment="Center" Margin="16,0,0,0" />
+            <TextBox Text="{Binding Height, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+            <TextBlock Text="Percent" Width="56" VerticalAlignment="Center" />
+            <TextBox Text="{Binding Percent, UpdateSourceTrigger=PropertyChanged}" />
+            <CheckBox Content="Keep proportions" IsChecked="{Binding KeepProportions}" Foreground="White" VerticalAlignment="Center" Margin="16,0,0,0" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Natural size" Command="{Binding NaturalCommand}" />
+            <Button Content="Resize" Command="{Binding ApplyCommand}" IsDefault="True" MinWidth="76" />
+            <Button Content="Cancel" Command="{Binding CancelCommand}" MinWidth="76" />
+        </StackPanel>
+    </StackPanel>
+</Window>

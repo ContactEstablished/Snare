@@ -19,4 +19,7 @@ public enum EditorHandle
 
     /// <summary>A line's or arrow's end point.</summary>
     End,
+
+    /// <summary>A callout's tail point.</summary>
+    Tail,
 }

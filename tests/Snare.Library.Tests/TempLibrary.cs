@@ -15,13 +15,19 @@ internal sealed class TempLibrary : IDisposable
     {
         Paths = new LibraryPaths(Path.Combine(_root.FullName, "Pictures"), Path.Combine(_root.FullName, "AppData"));
         Options = options ?? new SnareOptions();
+        Monitor = new FixedOptions(Options);
         Store = new SqliteCaptureStore(
-            Paths, new FixedOptions(Options), new AnnotationRenderer(), Clock, NullLogger<SqliteCaptureStore>.Instance);
+            Paths, Monitor, new AnnotationRenderer(), Clock, NullLogger<SqliteCaptureStore>.Instance);
     }
 
     public LibraryPaths Paths { get; }
 
     public SnareOptions Options { get; }
+
+    public IOptionsMonitor<SnareOptions> Monitor { get; }
+
+    /// <summary>A scratch folder inside this library's temp root, removed with it.</summary>
+    public string Folder(string name) => Path.Combine(_root.FullName, name);
 
     public TestClock Clock { get; } = new(new DateTimeOffset(2026, 10, 28, 9, 30, 15, TimeSpan.FromHours(-4)));
 

@@ -43,6 +43,69 @@ public sealed class EditorSmokeTests : IDisposable
     }
 
     [Fact]
+    public void Resize_UsesTheDialogsSize_AndUndoes()
+    {
+        using var viewModel = ViewModel(new FakeCaptureStore());
+        PixelSize? offered = null;
+        viewModel.PickSize = (current, natural) =>
+        {
+            offered = natural;
+            return new PixelSize(200, 150);
+        };
+
+        viewModel.ResizeCommand.Execute(null);
+
+        Assert.Equal(new PixelSize(400, 300), offered);
+        Assert.Equal(new PixelSize(200, 150), viewModel.Session.Document.Canvas.OutputSize);
+        viewModel.Session.Undo();
+        Assert.Null(viewModel.Session.Document.Canvas.Resize);
+
+        viewModel.PickSize = (_, _) => null; // cancelled: nothing changes
+        viewModel.ResizeCommand.Execute(null);
+        Assert.Null(viewModel.Session.Document.Canvas.Resize);
+    }
+
+    [Fact]
+    public void ResizeDialog_KeepsProportions_AndFollowsThePercent()
+    {
+        var dialog = new ResizeViewModel(new PixelSize(400, 300), new PixelSize(400, 300));
+        Assert.Equal(100, dialog.Percent);
+
+        dialog.Width = 200;
+        Assert.Equal((200, 150, 50.0), (dialog.Width, dialog.Height, dialog.Percent));
+
+        dialog.Height = 600;
+        Assert.Equal((800, 600, 200.0), (dialog.Width, dialog.Height, dialog.Percent));
+
+        dialog.Percent = 25;
+        Assert.Equal((100, 75), (dialog.Width, dialog.Height));
+
+        dialog.KeepProportions = false;
+        dialog.Width = 333;
+        Assert.Equal(75, dialog.Height);
+
+        dialog.Width = 20_000; // 20000 x 75: fine
+        Assert.True(dialog.ApplyCommand.CanExecute(null));
+        dialog.Height = 20_000; // 400 megapixels: too big to render
+        Assert.False(dialog.ApplyCommand.CanExecute(null));
+
+        PixelSize? result = new PixelSize(1, 1);
+        dialog.Closed += (_, size) => result = size;
+        dialog.Width = 0;
+        Assert.False(dialog.ApplyCommand.CanExecute(null));
+        dialog.CancelCommand.Execute(null);
+        Assert.Null(result);
+        dialog.NaturalCommand.Execute(null);
+        Assert.Equal(new PixelSize(400, 300), result);
+    }
+
+    [Fact]
+    public void ResizeWindow_LoadsItsXaml()
+    {
+        Sta.Run(() => Assert.Equal("Resize", new ResizeWindow(new ResizeViewModel(new PixelSize(10, 10), new PixelSize(10, 10))).Title));
+    }
+
+    [Fact]
     public void EditorWindow_LoadsAndRenders()
     {
         Sta.Run(() =>

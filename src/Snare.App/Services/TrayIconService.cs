@@ -5,6 +5,7 @@ using H.NotifyIcon;
 using H.NotifyIcon.Core;
 using Microsoft.Extensions.Logging;
 using Snare.Core.Hotkeys;
+using Snare.Core.Options;
 
 namespace Snare.App.Services;
 
@@ -14,6 +15,7 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
     private const string AppName = "Snare";
 
     // Created in Show, not here: WPF elements need the UI thread, and this service is built by DI.
+    private readonly Dictionary<HotkeyAction, MenuItem> _hotkeyItems = [];
     private MenuItem? _spikesMenu;
     private TaskbarIcon? _trayIcon;
 
@@ -26,7 +28,7 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
         }
 
         var menu = new ContextMenu();
-        menu.Items.Add(Item("Capture", actions.Capture, "PrtSc"));
+        menu.Items.Add(HotkeyItem(HotkeyAction.CaptureImage, "Capture", actions.Capture));
         var delayed = new MenuItem { Header = "Capture after delay" };
         foreach (var seconds in new[] { 3, 5, 10 })
         {
@@ -34,17 +36,20 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
         }
 
         menu.Items.Add(delayed);
-        menu.Items.Add(Item("Grab text", actions.GrabText, "Ctrl+Alt+PrtSc"));
-        menu.Items.Add(Item("Record video", actions.RecordVideo, "Shift+PrtSc"));
-        menu.Items.Add(Item("Scrolling capture", actions.ScrollingCapture, "Ctrl+Shift+PrtSc"));
+        menu.Items.Add(HotkeyItem(HotkeyAction.GrabText, "Grab text", actions.GrabText));
+        menu.Items.Add(HotkeyItem(HotkeyAction.RecordVideo, "Record video", actions.RecordVideo));
+        menu.Items.Add(HotkeyItem(HotkeyAction.CaptureScrolling, "Scrolling capture", actions.ScrollingCapture));
         menu.Items.Add(Item("Library", actions.OpenLibrary));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Settings…", actions.OpenSettings));
+        menu.Items.Add(Item("Back up library", actions.BackUp));
         menu.Items.Add(new Separator());
         _spikesMenu = new MenuItem { Header = "Spikes" };
         menu.Items.Add(_spikesMenu);
         menu.Items.Add(new Separator());
 
         var exit = new MenuItem { Header = "Exit" };
-        exit.Click += (_, _) => Application.Current.Shutdown();
+        exit.Click += (_, _) => actions.Exit();
         menu.Items.Add(exit);
 
         _trayIcon = new TaskbarIcon
@@ -72,12 +77,28 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
         _spikesMenu?.Items.Add(item);
     }
 
-    /// <summary>Puts hotkey problems in the tooltip and shows them once as a notification.</summary>
+    /// <summary>Shows each action's current hotkey beside it in the menu (blank when it's off).</summary>
+    public void UpdateHotkeyLabels(HotkeyOptions hotkeys)
+    {
+        ArgumentNullException.ThrowIfNull(hotkeys);
+        foreach (var (action, item) in _hotkeyItems)
+        {
+            item.InputGestureText = HotkeyGesture.TryParse(hotkeys.Get(action), out var gesture) ? gesture.ToString() : "";
+        }
+    }
+
+    /// <summary>Puts hotkey problems in the tooltip and shows them once as a notification; no problems clears the tooltip.</summary>
     public void ShowHotkeyConflicts(IReadOnlyList<HotkeyConflict> conflicts)
     {
         ArgumentNullException.ThrowIfNull(conflicts);
-        if (_trayIcon is null || conflicts.Count == 0)
+        if (_trayIcon is null)
         {
+            return;
+        }
+
+        if (conflicts.Count == 0)
+        {
+            _trayIcon.ToolTipText = AppName;
             return;
         }
 
@@ -96,6 +117,13 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
     }
 
     public void Dispose() => _trayIcon?.Dispose();
+
+    private MenuItem HotkeyItem(HotkeyAction action, string header, Action run)
+    {
+        var item = Item(header, run);
+        _hotkeyItems[action] = item;
+        return item;
+    }
 
     private static MenuItem Item(string header, Action run, string? gesture = null)
     {

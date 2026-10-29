@@ -18,4 +18,12 @@ public sealed class SnareOptions
 
     /// <summary>ffmpeg.exe or its folder; empty means tools/ffmpeg next to the app, then PATH.</summary>
     public string? FfmpegPath { get; set; }
+
+    public HotkeyOptions Hotkeys { get; set; } = new();
+
+    /// <summary>Start in the tray at sign-in (the per-user Run key). Release builds only.</summary>
+    public bool StartWithWindows { get; set; } = true;
+
+    /// <summary>Where one-click backups go. Empty means Documents\Snare Backups.</summary>
+    public string? BackupFolder { get; set; }
 }

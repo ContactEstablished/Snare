@@ -10,6 +10,7 @@ using SkiaSharp;
 using Snare.App.Messages;
 using Snare.App.Services;
 using Snare.Core.Annotations;
+using Snare.Core.Geometry;
 using Snare.Core.Captures;
 using Snare.Core.Imaging;
 using Snare.Core.Options;
@@ -85,6 +86,9 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
 
     /// <summary>Set by the view: returns a path for Save As, or null if cancelled.</summary>
     public Func<string, string?>? PickSaveAsPath { get; set; }
+
+    /// <summary>The view's Resize dialog: current and natural output size in, chosen size out (null when cancelled).</summary>
+    public Func<PixelSize, PixelSize, PixelSize?>? PickSize { get; set; }
 
     /// <summary>Set by the view: asks Matt to confirm discarding the original.</summary>
     public Func<bool>? ConfirmDiscardOriginal { get; set; }
@@ -188,11 +192,13 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
     public bool ShowsColor => StyleTool is not (EditorTool.Select or EditorTool.Blur or EditorTool.Pixelate or EditorTool.Crop or EditorTool.Eyedropper);
 
     public bool ShowsWidth => StyleTool is EditorTool.Arrow or EditorTool.Line or EditorTool.Rectangle or EditorTool.Ellipse
-        or EditorTool.Pen or EditorTool.Highlighter or EditorTool.Step;
+        or EditorTool.Pen or EditorTool.Highlighter or EditorTool.Step or EditorTool.Callout;
 
-    public bool ShowsFill => StyleTool is EditorTool.Rectangle or EditorTool.Ellipse;
+    public bool ShowsFill => StyleTool is EditorTool.Rectangle or EditorTool.Ellipse or EditorTool.Callout;
 
-    public bool ShowsText => StyleTool is EditorTool.Text;
+    public bool ShowsText => StyleTool is EditorTool.Text or EditorTool.Callout;
+
+    public bool ShowsTextBackground => StyleTool is EditorTool.Text;
 
     public bool ShowsStrength => StyleTool is EditorTool.Blur or EditorTool.Pixelate;
 
@@ -242,6 +248,18 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ClearCrop() => Session.ClearCrop();
 
+    /// <summary>Resize…: a new output size for the export (after any crop); undoable like any edit.</summary>
+    [RelayCommand]
+    private void Resize()
+    {
+        var canvas = Session.Document.Canvas;
+        var natural = new PixelSize(canvas.ExportArea.Width, canvas.ExportArea.Height);
+        if (PickSize?.Invoke(canvas.OutputSize, natural) is { } size)
+        {
+            Session.Resize(size == natural ? null : size);
+        }
+    }
+
     /// <summary>Copies the flattened image, exactly as it would export.</summary>
     [RelayCommand]
     private async Task CopyImageAsync()
@@ -269,6 +287,14 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
         var json = AnnotationJson.Serialize(document);
         if (json == _exportedJson)
         {
+            // Undone back to the export: the layer autosave stored must match it too, or the
+            // undone edit would come back when the capture is reopened.
+            if (json != _savedJson)
+            {
+                await _store.SaveAnnotationsAsync(Capture.Id, document);
+                _savedJson = json;
+            }
+
             Status = "Saved";
             return true;
         }

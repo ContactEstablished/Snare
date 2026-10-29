@@ -319,10 +319,11 @@ internal sealed class EditorCanvas : SKElement
                 EditorHandle.Top or EditorHandle.Bottom => Cursors.SizeNS,
                 EditorHandle.TopLeft or EditorHandle.BottomRight => Cursors.SizeNWSE,
                 EditorHandle.TopRight or EditorHandle.BottomLeft => Cursors.SizeNESW,
-                EditorHandle.Start or EditorHandle.End => Cursors.Cross,
+                EditorHandle.Start or EditorHandle.End or EditorHandle.Tail => Cursors.Cross,
                 _ => Cursors.Arrow,
             },
             EditorTool.Text => Cursors.IBeam,
+            EditorTool.Callout => Cursors.Cross,
             EditorTool.Eyedropper or EditorTool.Step => Cursors.Hand,
             _ => Cursors.Cross,
         };
