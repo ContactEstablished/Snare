@@ -395,7 +395,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 **Phase 5: Scrolling capture**
 
 - [ ] Manual mode stitches a long web page with a sticky header correctly
-- [ ] Stitcher fixture tests pass
+- [x] Stitcher fixture tests pass (synthetic pages and a sequence recorded in headless Edge)
 - [ ] Automatic mode works in Chrome and Edge, after a UI Automation spike
 
 **Phase 6: Polish**

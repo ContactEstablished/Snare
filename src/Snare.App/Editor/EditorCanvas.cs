@@ -66,10 +66,9 @@ internal sealed class EditorCanvas : SKElement
         }
 
         var image = _viewModel.Original;
-        const float margin = 32;
-        _scale = Math.Min(1, Math.Min((size.Width - margin) / image.Width, (size.Height - margin) / image.Height));
-        _scale = Math.Max((float)MinZoom, _scale);
-        _origin = new SKPoint((size.Width - (image.Width * _scale)) / 2, (size.Height - (image.Height * _scale)) / 2);
+        var (scale, x, y) = ViewFit.Fit(size.Width, size.Height, image.Width, image.Height, margin: 32, (float)MinZoom);
+        _scale = scale;
+        _origin = new SKPoint(x, y);
         _fitted = true;
         AfterZoom();
     }

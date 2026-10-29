@@ -10,6 +10,7 @@ using Snare.Capture;
 using Snare.Capture.Selection;
 using Snare.Core.Captures;
 using Snare.Core.Geometry;
+using Snare.Core.Imaging;
 using Snare.Core.Options;
 using Snare.Core.Search;
 using Snare.Rendering;
@@ -163,10 +164,22 @@ public sealed class CaptureService(
             : desktop.SourceUnderCursor();
 
         var image = await Task.Run(() => DesktopCropper.Crop(desktop, selection.Rect));
+        var rect = selection.Rect;
+        var center = new PixelPoint(rect.X + (rect.Width / 2), rect.Y + (rect.Height / 2));
+        var monitor = (desktop.MonitorAt(center) ?? desktop.MonitorAt(new PixelPoint(rect.X, rect.Y)) ?? desktop.Monitors[0]).Monitor;
+        await DeliverAsync(image, source, desktop.CapturedAt, CaptureKind.Image, rect, monitor);
+    }
 
+    /// <summary>
+    /// After a capture: save it to the library, copy it, then the quick bar (beside
+    /// <paramref name="rect"/> on <paramref name="monitor"/>) or the editor. Also used by scrolling capture.
+    /// </summary>
+    public async Task DeliverAsync(
+        PixelBuffer image, CaptureSource source, DateTimeOffset capturedAt, CaptureKind kind, PixelRect rect, MonitorInfo monitor)
+    {
         // Save and encode the clipboard PNG side by side. The clipboard gets the pixels even if
         // the save fails, so a broken library never costs Matt the screenshot itself.
-        var save = Task.Run(() => store.SaveImageAsync(image, source, desktop.CapturedAt));
+        var save = Task.Run(() => store.SaveImageAsync(image, source, capturedAt, kind));
         var png = Task.Run(() => EncodePng(image));
         CaptureRecord? record = null;
         Exception? saveError = null;
@@ -183,14 +196,14 @@ public sealed class CaptureService(
 
         if (record is null)
         {
-            logger.LogError(saveError, "Capture {Rect} could not be saved", selection.Rect);
+            logger.LogError(saveError, "Capture {Rect} could not be saved", rect);
             tray.Notify(
                 "Capture not saved",
                 (copied ? "It is on the clipboard. " : "") + (saveError?.Message ?? "Unknown error."));
             return;
         }
 
-        logger.LogInformation("Captured {Target} {Rect} from {App}", selection.Target, selection.Rect, source.App);
+        logger.LogInformation("Captured {Kind} {Width}x{Height} from {Rect} in {App}", kind, image.Width, image.Height, rect, source.App);
         if (!copied)
         {
             tray.Notify("Snare", "Saved, but the clipboard was busy. Use Copy on the quick bar.");
@@ -203,7 +216,7 @@ public sealed class CaptureService(
         }
         else
         {
-            ShowQuickBar(record, selection.Rect, desktop);
+            ShowQuickBar(record, rect, monitor);
         }
     }
 
@@ -215,7 +228,7 @@ public sealed class CaptureService(
         return freezer.Freeze(options.CurrentValue.IncludeCursor);
     }
 
-    private byte[]? EncodePng(Snare.Core.Imaging.PixelBuffer image)
+    private byte[]? EncodePng(PixelBuffer image)
     {
         try
         {
@@ -229,10 +242,8 @@ public sealed class CaptureService(
         }
     }
 
-    private void ShowQuickBar(CaptureRecord record, PixelRect rect, FrozenDesktop desktop)
+    private void ShowQuickBar(CaptureRecord record, PixelRect rect, MonitorInfo monitor)
     {
-        var center = new PixelPoint(rect.X + (rect.Width / 2), rect.Y + (rect.Height / 2));
-        var monitor = (desktop.MonitorAt(center) ?? desktop.MonitorAt(new PixelPoint(rect.X, rect.Y)) ?? desktop.Monitors[0]).Monitor;
         var viewModel = ActivatorUtilities.CreateInstance<QuickBarViewModel>(services, record, logger);
         var quickBar = new QuickBarWindow(viewModel, rect, monitor);
         quickBar.Closed += (_, _) =>

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Snare.App.Capture;
 using Snare.App.Library;
 using Snare.App.Recording;
+using Snare.App.Scrolling;
 using Snare.App.Spikes;
 using Snare.Core.Hotkeys;
 using Snare.Interop;
@@ -14,6 +15,7 @@ public sealed class ShellService(
     HotkeyService hotkeys,
     CaptureService capture,
     RecordingService recording,
+    ScrollCaptureService scrolling,
     LibraryWindowService library,
     FreezeOverlaySpike freezeOverlay,
     SkiaCanvasSpike skiaCanvas,
@@ -27,6 +29,7 @@ public sealed class ShellService(
             CaptureAfterDelay: seconds => _ = capture.CaptureAsync(seconds),
             GrabText: () => _ = capture.GrabTextAsync(),
             RecordVideo: () => _ = recording.ToggleAsync(),
+            ScrollingCapture: () => _ = scrolling.ToggleAsync(),
             OpenLibrary: library.Show));
 
         // Phase 0 harnesses stay until their manual checks in docs/phases/0-foundation/task.md are ticked.
@@ -62,6 +65,9 @@ public sealed class ShellService(
                 break;
             case HotkeyAction.RecordVideo:
                 _ = recording.ToggleAsync();
+                break;
+            case HotkeyAction.CaptureScrolling:
+                _ = scrolling.ToggleAsync();
                 break;
             case HotkeyAction.GrabText:
                 _ = capture.GrabTextAsync();
