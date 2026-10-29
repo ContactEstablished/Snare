@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Extensions.Options;
 using Snare.Core.Options;
 
 namespace Snare.Library;
@@ -9,15 +10,30 @@ namespace Snare.Library;
 /// </summary>
 public sealed class LibraryPaths
 {
+    private readonly Func<string> _libraryRoot;
+
     public LibraryPaths(string libraryRoot, string appDataRoot)
+        : this(Validated(libraryRoot), appDataRoot)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(libraryRoot);
+    }
+
+    /// <summary>A library root read on each use, so a folder changed in Settings applies to the next capture.</summary>
+    public LibraryPaths(Func<string> libraryRoot, string appDataRoot)
+    {
+        ArgumentNullException.ThrowIfNull(libraryRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(appDataRoot);
-        LibraryRoot = libraryRoot;
+        _libraryRoot = libraryRoot;
         AppDataRoot = appDataRoot;
     }
 
-    public string LibraryRoot { get; }
+    /// <summary>Where new exports go. Captures saved under an earlier root stay there (decided).</summary>
+    public string LibraryRoot => _libraryRoot();
+
+    public static string DefaultLibraryRoot =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Snare");
+
+    public static string DefaultAppDataRoot =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Snare");
 
     public string AppDataRoot { get; }
 
@@ -75,13 +91,22 @@ public sealed class LibraryPaths
     public static LibraryPaths FromOptions(SnareOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        return new LibraryPaths(RootFor(options), DefaultAppDataRoot);
+    }
 
-        var libraryRoot = string.IsNullOrWhiteSpace(options.LibraryRoot)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Snare")
-            : options.LibraryRoot;
-        var appDataRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Snare");
+    /// <summary>Paths that follow the library folder setting as it changes.</summary>
+    public static LibraryPaths FromOptions(IOptionsMonitor<SnareOptions> options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return new LibraryPaths(() => RootFor(options.CurrentValue), DefaultAppDataRoot);
+    }
 
-        return new LibraryPaths(libraryRoot, appDataRoot);
+    private static string RootFor(SnareOptions options) =>
+        string.IsNullOrWhiteSpace(options.LibraryRoot) ? DefaultLibraryRoot : options.LibraryRoot;
+
+    private static Func<string> Validated(string libraryRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(libraryRoot);
+        return () => libraryRoot;
     }
 }

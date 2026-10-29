@@ -15,7 +15,8 @@ public static class LibraryServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton(TimeProvider.System);
-        services.AddSingleton(sp => LibraryPaths.FromOptions(sp.GetRequiredService<IOptions<SnareOptions>>().Value));
+        services.AddSingleton(sp => LibraryPaths.FromOptions(sp.GetRequiredService<IOptionsMonitor<SnareOptions>>()));
+        services.AddSingleton<LibraryBackup>();
         services.AddSingleton<SqliteCaptureStore>();
         services.AddSingleton<ICaptureStore>(sp => sp.GetRequiredService<SqliteCaptureStore>());
         services.AddSingleton<ICaptureCatalog>(sp => sp.GetRequiredService<SqliteCaptureStore>());
