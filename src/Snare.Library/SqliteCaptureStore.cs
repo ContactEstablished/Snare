@@ -22,6 +22,7 @@ public sealed class SqliteCaptureStore : ICaptureStore
     private readonly ILogger<SqliteCaptureStore> _logger;
     private readonly DbContextOptions<SnareDbContext> _dbOptions;
     private readonly SemaphoreSlim _initialize = new(1, 1);
+    private readonly SemaphoreSlim _save = new(1, 1);
     private bool _initialized;
 
     public SqliteCaptureStore(
@@ -48,16 +49,40 @@ public sealed class SqliteCaptureStore : ICaptureStore
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(source);
-        await EnsureInitializedAsync(cancellationToken);
 
         var id = Guid.CreateVersion7(capturedAt);
         var options = _options.CurrentValue;
         using var bitmap = PixelBufferImages.ToBitmap(image);
 
-        // 1. Original pixels first: after this, a crash can't lose the capture.
+        // 1. Original pixels first, before anything touches the database: after this, even a
+        //    locked or broken library.db can't lose the capture.
         var originalPath = _paths.OriginalPathFor(id);
         await WriteNewFileAsync(originalPath, ImageCodec.EncodePng(bitmap), cancellationToken);
 
+        await EnsureInitializedAsync(cancellationToken);
+
+        // One save at a time, so two captures in the same second can't pick the same export name.
+        await _save.WaitAsync(cancellationToken);
+        try
+        {
+            return await SaveRowAndExportAsync(id, bitmap, image, source, capturedAt, originalPath, options, cancellationToken);
+        }
+        finally
+        {
+            _save.Release();
+        }
+    }
+
+    private async Task<CaptureRecord> SaveRowAndExportAsync(
+        Guid id,
+        SKBitmap bitmap,
+        PixelBuffer image,
+        CaptureSource source,
+        DateTimeOffset capturedAt,
+        string originalPath,
+        SnareOptions options,
+        CancellationToken cancellationToken)
+    {
         // 2. The row, pointing at the export it is about to get.
         var exportPath = _paths.UniqueExportPathFor(capturedAt, options.DefaultExportFormat, File.Exists);
         var now = _clock.GetUtcNow().UtcDateTime;
@@ -85,13 +110,23 @@ public sealed class SqliteCaptureStore : ICaptureStore
         var document = new AnnotationDocument { Canvas = new CanvasInfo(image.Width, image.Height) };
         using (var flattened = _renderer.Render(bitmap, document))
         {
+            // The thumbnail goes first so the library tile shows even if the export below fails
+            // (for example, Pictures blocked by Controlled Folder Access, or a full disk). The
+            // original and row are already safe; Phase 3's startup reconciliation re-exports.
+            await WriteFileAsync(_paths.ThumbnailPathFor(id), ImageCodec.EncodeThumbnail(flattened), cancellationToken);
+
             var encoded = options.DefaultExportFormat == ExportFormat.Jpeg
                 ? ImageCodec.EncodeJpeg(flattened, options.JpegQuality)
                 : ImageCodec.EncodePng(flattened);
-            await WriteNewFileAsync(exportPath, encoded, cancellationToken);
-
-            // 4. Thumbnail last; it can always be rebuilt.
-            await WriteFileAsync(_paths.ThumbnailPathFor(id), ImageCodec.EncodeThumbnail(flattened), cancellationToken);
+            try
+            {
+                await WriteNewFileAsync(exportPath, encoded, cancellationToken);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _logger.LogError(ex, "Capture {Id} is in the library, but its export to {Path} failed", id, exportPath);
+                throw;
+            }
         }
 
         _logger.LogInformation("Saved capture {Id} {Width}x{Height} to {Path}", id, image.Width, image.Height, exportPath);
@@ -169,19 +204,25 @@ public sealed class SqliteCaptureStore : ICaptureStore
     }
 
     /// <summary>Writes to a temp file, then moves it into place without overwriting anything.</summary>
-    private static async Task WriteNewFileAsync(string path, byte[] data, CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temp = path + ".tmp";
-        await File.WriteAllBytesAsync(temp, data, cancellationToken);
-        File.Move(temp, path, overwrite: false);
-    }
+    private static Task WriteNewFileAsync(string path, byte[] data, CancellationToken cancellationToken) =>
+        WriteViaTempAsync(path, data, overwrite: false, cancellationToken);
 
-    private static async Task WriteFileAsync(string path, byte[] data, CancellationToken cancellationToken)
+    private static Task WriteFileAsync(string path, byte[] data, CancellationToken cancellationToken) =>
+        WriteViaTempAsync(path, data, overwrite: true, cancellationToken);
+
+    /// <summary>A unique temp name next to the target, removed again if anything fails.</summary>
+    private static async Task WriteViaTempAsync(string path, byte[] data, bool overwrite, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temp = path + ".tmp";
-        await File.WriteAllBytesAsync(temp, data, cancellationToken);
-        File.Move(temp, path, overwrite: true);
+        var temp = $"{path}.{Path.GetRandomFileName()}.tmp";
+        try
+        {
+            await File.WriteAllBytesAsync(temp, data, cancellationToken);
+            File.Move(temp, path, overwrite);
+        }
+        finally
+        {
+            File.Delete(temp); // no-op once moved
+        }
     }
 }

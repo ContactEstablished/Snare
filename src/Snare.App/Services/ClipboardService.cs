@@ -10,12 +10,12 @@ namespace Snare.App.Services;
 
 /// <summary>
 /// Puts images on the clipboard as both a bitmap (for every app) and PNG data (for apps that
-/// prefer it). Other apps briefly lock the clipboard, so each copy retries a few times.
+/// prefer it). Other apps briefly lock the clipboard; WPF retries for about a second, and this tries once more.
 /// </summary>
 public sealed class ClipboardService(ILogger<ClipboardService> logger)
 {
-    private const int Attempts = 6;
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(60);
+    private const int Attempts = 2; // Clipboard.SetDataObject already retries internally
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(200);
 
     /// <summary>Copies captured pixels. Call on the UI thread.</summary>
     public Task<bool> CopyAsync(PixelBuffer image, byte[]? png = null)

@@ -166,6 +166,74 @@ public class SelectionSessionTests
     }
 
     [Fact]
+    public void ClickOutsideARegion_KeepsTheRegion_AndDoesNotTakeAWindow()
+    {
+        var s = Session();
+        Drag(s, 10, 10, 20, 20);
+
+        s.PointerDown(new PixelPoint(60, 35));
+        s.PointerUp(new PixelPoint(61, 35));
+
+        Assert.Equal(SelectionPhase.Adjusting, s.Phase);
+        Assert.Equal(new PixelRect(10, 10, 11, 11), s.Selection);
+        Assert.Null(s.Result);
+    }
+
+    [Fact]
+    public void DragOutsideARegion_ReplacesIt()
+    {
+        var s = Session();
+        Drag(s, 10, 10, 20, 20);
+
+        Drag(s, 50, 25, 70, 35);
+
+        Assert.Equal(new PixelRect(50, 25, 21, 11), s.Selection);
+    }
+
+    [Fact]
+    public void ClickWithNoWindowUnderneath_KeepsHovering()
+    {
+        // The upper monitor has no windows in the test desktop.
+        var s = Session();
+
+        s.PointerDown(new PixelPoint(40, -20));
+        s.PointerUp(new PixelPoint(40, -20));
+
+        Assert.Equal(SelectionPhase.Hovering, s.Phase);
+        Assert.Null(s.Result);
+    }
+
+    [Fact]
+    public void F_OverTheGapBetweenMonitors_DoesNothing()
+    {
+        var s = Session();
+        s.PointerMove(new PixelPoint(5, -20)); // left of the upper monitor, inside the bounding box
+
+        s.TakeMonitorAtPointer();
+
+        Assert.False(s.IsFinished);
+    }
+
+    [Fact]
+    public void Moving_StopsAtTheDesktopEdge()
+    {
+        var s = Session();
+        Drag(s, 10, 10, 20, 20);
+
+        Drag(s, 15, 15, 300, 300);
+
+        Assert.Equal(new PixelRect(89, 29, 11, 11), s.Selection);
+    }
+
+    [Fact]
+    public void HitTest_ShrinksHandlesOnSmallRegions()
+    {
+        // 8x8 region: tolerance drops to 2, so the middle is Inside rather than a handle.
+        Assert.Equal(SelectionHandle.Inside, SelectionSession.HitTest(new PixelRect(0, 0, 8, 8), new PixelPoint(4, 4), tolerance: 8));
+        Assert.Equal(SelectionHandle.TopLeft, SelectionSession.HitTest(new PixelRect(0, 0, 8, 8), new PixelPoint(1, 1), tolerance: 8));
+    }
+
+    [Fact]
     public void Nudge_MovesTheRegionAndStaysOnTheDesktop()
     {
         var s = Session();

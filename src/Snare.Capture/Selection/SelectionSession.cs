@@ -17,6 +17,7 @@ public sealed class SelectionSession
     private PixelPoint _anchor;
     private PixelRect _dragStartSelection;
     private SelectionHandle _activeHandle;
+    private PixelRect? _regionBeforePress;
 
     public SelectionSession(FrozenDesktop desktop, int handleTolerance = 8)
     {
@@ -61,7 +62,7 @@ public sealed class SelectionSession
                 HoveredWindow = _desktop.WindowAt(Pointer);
                 break;
             case SelectionPhase.Drawing:
-                Selection = IsClick(_anchor, Pointer) ? null : Inclusive(_anchor, Pointer);
+                Selection = IsClick(_anchor, Pointer) ? _regionBeforePress : Inclusive(_anchor, Pointer);
                 break;
             case SelectionPhase.Moving:
                 Selection = SelectionNudge.Move(
@@ -106,9 +107,11 @@ public sealed class SelectionSession
             }
         }
 
-        // Anywhere else starts a new region (or, if the pointer doesn't move, a window click).
+        // Anywhere else starts a new region. If the pointer doesn't move, it is a click: from
+        // hovering that takes a window; with a region already drawn it keeps that region.
+        _regionBeforePress = Phase == SelectionPhase.Adjusting ? Selection : null;
         Phase = SelectionPhase.Drawing;
-        Selection = null;
+        Selection = _regionBeforePress;
         OnChanged();
     }
 
@@ -122,6 +125,11 @@ public sealed class SelectionSession
         Pointer = Clamp(point);
         switch (Phase)
         {
+            case SelectionPhase.Drawing when IsClick(_anchor, Pointer) && _regionBeforePress is { } kept:
+                // A stray click beside a drawn region keeps it rather than capturing a window.
+                Selection = kept;
+                Phase = SelectionPhase.Adjusting;
+                break;
             case SelectionPhase.Drawing when IsClick(_anchor, Pointer):
                 TakeWindowAt(_anchor);
                 return;

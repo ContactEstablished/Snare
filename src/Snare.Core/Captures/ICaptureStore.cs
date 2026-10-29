@@ -6,8 +6,9 @@ namespace Snare.Core.Captures;
 public interface ICaptureStore
 {
     /// <summary>
-    /// Saves a new still capture: the original first, then the database row, then the flattened
-    /// export and its thumbnail, so a crash never loses pixels.
+    /// Saves a new still capture: the original first, then the database row, then the thumbnail
+    /// and the flattened export, so a crash never loses pixels. If only the export fails, the
+    /// capture stays in the library and the error is rethrown.
     /// </summary>
     Task<CaptureRecord> SaveImageAsync(
         PixelBuffer image, CaptureSource source, DateTimeOffset capturedAt, CancellationToken cancellationToken = default);

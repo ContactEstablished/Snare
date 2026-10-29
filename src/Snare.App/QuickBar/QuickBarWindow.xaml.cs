@@ -11,7 +11,6 @@ namespace Snare.App.QuickBar;
 internal sealed partial class QuickBarWindow : Window
 {
     private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(6);
-    private const int Gap = 12;
 
     private readonly DispatcherTimer _timer = new() { Interval = Lifetime };
     private readonly PixelRect _selection;
@@ -37,29 +36,16 @@ internal sealed partial class QuickBarWindow : Window
             }
         };
         MouseLeave += (_, _) => _timer.Start();
+
+        // Never part of a screenshot, even if a capture starts while it is still showing.
+        SourceInitialized += (_, _) => CaptureExclusion.ExcludeFromCapture(new WindowInteropHelper(this).Handle);
         Loaded += (_, _) =>
         {
-            PlaceNearSelection();
+            var bar = new PixelSize((int)Math.Ceiling(ActualWidth * _monitor.Scale), (int)Math.Ceiling(ActualHeight * _monitor.Scale));
+            var at = QuickBarPlacement.Place(bar, _selection, _monitor.WorkArea);
+            WindowPlacement.MoveTopmost(new WindowInteropHelper(this).Handle, at.X, at.Y);
             _timer.Start();
         };
         Closed += (_, _) => _timer.Stop();
-    }
-
-    /// <summary>Below the selection's bottom-right, kept inside the monitor's work area.</summary>
-    private void PlaceNearSelection()
-    {
-        var width = (int)Math.Ceiling(ActualWidth * _monitor.Scale);
-        var height = (int)Math.Ceiling(ActualHeight * _monitor.Scale);
-        var work = _monitor.WorkArea;
-
-        var x = Math.Max(work.X + Gap, Math.Min(_selection.Right - width, work.Right - width - Gap));
-        var y = _selection.Bottom + Gap;
-        if (y + height > work.Bottom - Gap)
-        {
-            // No room below: tuck it inside the selection's bottom edge instead.
-            y = Math.Max(work.Y + Gap, Math.Min(_selection.Bottom, work.Bottom) - height - Gap);
-        }
-
-        WindowPlacement.MoveTopmost(new WindowInteropHelper(this).Handle, x, y);
     }
 }

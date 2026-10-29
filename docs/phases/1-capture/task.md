@@ -12,7 +12,7 @@ See [spec.md](spec.md).
 - [x] App: library window
 - [x] HDR warning, `tools/publish.ps1`
 - [x] `Snare.App.Tests`: off-screen smoke tests that load each window's XAML and render the overlay
-- [ ] Code review, merge, push
+- [x] Code review, merge, push
 
 ## Checked by the agent on Matt's PC (Oct 29, 2026)
 
@@ -35,13 +35,13 @@ Turn off Snagit's `PrtSc` hotkey first (or quit Snagit), then run `dotnet run --
 - [ ] **Full screen:** press `PrtSc`, then `F` over the upper monitor: you get 3440×1440. Press `PrtSc`, then `A`: you get 5120×2880.
 - [ ] **Menus survive:** open a right-click menu in any app, press `PrtSc`, and capture it. The menu is in the image.
 - [ ] **Cancel:** Esc, a right-click, and Alt+F4 each cancel without saving anything.
-- [ ] **Delayed:** tray → Capture after delay → 5 seconds, then open a menu during the countdown. The countdown bubble is not in the capture.
+- [ ] **Delayed:** tray → Capture after delay → 5 seconds, then open a menu during the countdown. The countdown bubble is not in the capture. Once the overlay appears, check that Esc, F and the arrow keys work straight away. Another app was in front, so the overlay may not get keyboard focus; if it doesn't, note it here.
 - [ ] **Repeat:** after a region capture, press `Ctrl+PrtSc`. The same region is saved straight away, with no overlay.
 - [ ] **Saved files:**
   - `Pictures\Snare\2026\10\` has `yyyy-MM-dd_HHmmss.png`, with `_2` added for two captures in the same second.
   - `%LOCALAPPDATA%\Snare\originals` and `thumbs` each have a file per capture.
   - Opening the PNG in Explorer's Properties → Details shows no extra metadata.
-- [ ] **Quick bar:** Copy, Show in folder (Explorer opens with the file selected), Library and Delete all work. The bar closes after about 6 s unless the mouse is over it.
+- [ ] **Quick bar:** press `PrtSc` then `F` twice in a row: the first quick bar is not in the second capture. Copy, Show in folder (Explorer opens with the file selected), Library and Delete all work. The bar closes after about 6 s unless the mouse is over it.
 - [ ] **Library:** tray → Library shows thumbnails, newest first, with dates and the source app.
   - Double-click opens the file. Right-click → Copy, Show in folder and Move to Trash work, and so do Del and Ctrl+C.
   - A new capture appears at the top while the window is open.

@@ -93,6 +93,47 @@ public class SqliteCaptureStoreTests
     }
 
     [Fact]
+    public async Task Save_WhenTheExportFails_KeepsOriginalRowAndThumbnail()
+    {
+        using var library = new TempLibrary();
+        // A file where the year folder should be makes the export's directory creation fail.
+        Directory.CreateDirectory(library.Paths.LibraryRoot);
+        await File.WriteAllTextAsync(Path.Combine(library.Paths.LibraryRoot, "2026"), "in the way", Ct);
+
+        await Assert.ThrowsAnyAsync<IOException>(() =>
+            library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), Chrome, CapturedAt, Ct));
+
+        var saved = Assert.Single(await library.Store.ListAsync(Ct));
+        Assert.True(File.Exists(saved.OriginalPath));
+        Assert.True(File.Exists(library.Store.ThumbnailPathFor(saved.Id)));
+        Assert.False(File.Exists(saved.FilePath));
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(library.Paths.LibraryRoot)!, "*.tmp", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public async Task Save_Concurrently_InTheSameSecond_GetsDistinctExports()
+    {
+        using var library = new TempLibrary();
+
+        var records = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
+            library.Store.SaveImageAsync(PixelBuffer.Filled(2, 2, 0xFF000000), Chrome, CapturedAt, Ct)));
+
+        Assert.Equal(4, records.Select(r => r.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.All(records, r => Assert.True(File.Exists(r.FilePath)));
+    }
+
+    [Fact]
+    public async Task Thumbnail_IsAWebpInside320x240()
+    {
+        using var library = new TempLibrary();
+
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(1280, 360, 0xFF1F6FEB), Chrome, CapturedAt, Ct);
+
+        using var thumb = ImageCodec.Decode(await File.ReadAllBytesAsync(library.Store.ThumbnailPathFor(record.Id), Ct));
+        Assert.Equal((320, 90), (thumb.Width, thumb.Height));
+    }
+
+    [Fact]
     public async Task Database_IsAtTheCurrentSchemaVersion()
     {
         using var library = new TempLibrary();

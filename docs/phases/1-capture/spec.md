@@ -23,13 +23,13 @@ Cut from [the build plan](../../build-plan.md): Image capture, Data and storage,
    - The chrome shows a crosshair, a loupe (8× zoom of 15×15 px), the physical cursor position, the selection size, and the hex color under the cursor.
 6. The result is cropped from the frozen frames (`DesktopCropper`), never re-grabbed. Areas off every monitor are black.
 7. `CaptureService` (App) hands the crop to `ICaptureStore.SaveImageAsync`. In order, the store writes:
-   1. the original PNG to `originals\<id>.png`;
+   1. the original PNG to `originals\<id>.png`, before it touches the database at all;
    2. the `Capture` row;
-   3. the flattened export at `<LibraryRoot>\yyyy\MM\yyyy-MM-dd_HHmmss[_n].png`, using the next free suffix;
-   4. the thumbnail at `thumbs\<id>.webp`.
+   3. the thumbnail at `thumbs\<id>.webp`;
+   4. the flattened export at `<LibraryRoot>\yyyy\MM\yyyy-MM-dd_HHmmss[_n].png`, using the next free suffix.
 
-   It returns the record.
-8. The flattened image goes on the clipboard, as both a bitmap and `PNG` data, with retries if the clipboard is busy.
+   It returns the record. Saves are serialized, so two captures in the same second can't take the same name. Every file is written to a uniquely named temp file and then moved into place. If the export fails (Pictures blocked, disk full), the original, row and thumbnail are kept and the error is reported; Phase 3's startup reconciliation re-exports.
+8. The image goes on the clipboard, as both a bitmap and `PNG` data, even if the save failed. In that case, a tray notification says so. Any previous quick bar is closed before each freeze and excluded from capture, so it never appears in a screenshot.
 9. `QuickBarWindow` appears near the selection, on its monitor. It offers Copy, Reveal in Explorer, Open library and Delete (to Trash). It closes itself after 6 s unless the mouse is over it. Phase 2 adds Edit; Phase 3 adds the tag box.
 
 **Delayed capture:** a small topmost countdown (3, 2, 1) near the cursor, excluded from capture (`CaptureExclusion`) and closed before the freeze.

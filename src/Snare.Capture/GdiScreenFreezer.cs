@@ -12,8 +12,9 @@ public sealed class GdiScreenFreezer(TimeProvider clock) : IScreenFreezer
     public FrozenDesktop Freeze(bool includeCursor = false)
     {
         // Windows and cursor first: they describe the moment of the hotkey, before any grab.
+        // Process names are slower to look up, so they wait until after the grab.
         var cursor = WindowPlacement.GetCursorPosition();
-        var windows = SnapshotWindows();
+        var rawWindows = WindowSnapshot.TakeTopDown();
         var capturedAt = clock.GetLocalNow();
 
         var frozen = DisplayMonitors.GetAll()
@@ -26,7 +27,7 @@ public sealed class GdiScreenFreezer(TimeProvider clock) : IScreenFreezer
             })
             .ToList();
 
-        return new FrozenDesktop(frozen, capturedAt, windows, new PixelPoint(cursor.X, cursor.Y));
+        return new FrozenDesktop(frozen, capturedAt, ToWindowInfos(rawWindows), new PixelPoint(cursor.X, cursor.Y));
     }
 
     internal static MonitorInfo ToMonitorInfo(DisplayMonitor m) => new(
@@ -37,12 +38,12 @@ public sealed class GdiScreenFreezer(TimeProvider clock) : IScreenFreezer
         m.IsPrimary);
 
     /// <summary>Every other app's top-level window, topmost first. Snare's own windows are left out.</summary>
-    private static List<WindowInfo> SnapshotWindows()
+    private static List<WindowInfo> ToWindowInfos(IReadOnlyList<TopLevelWindow> windows)
     {
         var ownProcess = (uint)Environment.ProcessId;
         var processNames = new Dictionary<uint, string>();
 
-        return WindowSnapshot.TakeTopDown()
+        return windows
             .Where(w => w.ProcessId != ownProcess)
             .Select(w => new WindowInfo(
                 w.Handle,
@@ -64,7 +65,7 @@ public sealed class GdiScreenFreezer(TimeProvider clock) : IScreenFreezer
             using var process = Process.GetProcessById((int)processId);
             name = process.ProcessName;
         }
-        catch (ArgumentException)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             name = ""; // exited between the snapshot and now
         }

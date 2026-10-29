@@ -10,6 +10,7 @@ using Snare.Capture.Selection;
 using Snare.Core.Captures;
 using Snare.Core.Geometry;
 using Snare.Core.Options;
+using Snare.Rendering;
 
 namespace Snare.App.Capture;
 
@@ -29,6 +30,7 @@ public sealed class CaptureService(
 {
     private bool _busy;
     private PixelRect? _lastRegion;
+    private QuickBarWindow? _quickBar;
 
     /// <summary>PrtSc, or tray → Capture. With a delay, counts down first so menus can be opened.</summary>
     public async Task CaptureAsync(int delaySeconds = 0)
@@ -45,7 +47,7 @@ public sealed class CaptureService(
                 await new CountdownWindow().RunAsync(delaySeconds);
             }
 
-            var desktop = freezer.Freeze(options.CurrentValue.IncludeCursor);
+            var desktop = Freeze();
             var selection = await overlay.SelectAsync(desktop);
             if (selection is null)
             {
@@ -86,7 +88,7 @@ public sealed class CaptureService(
 
         try
         {
-            var desktop = freezer.Freeze(options.CurrentValue.IncludeCursor);
+            var desktop = Freeze();
             var clipped = region.Intersect(desktop.Bounds);
             if (clipped.IsEmpty)
             {
@@ -114,10 +116,35 @@ public sealed class CaptureService(
             : desktop.SourceUnderCursor();
 
         var image = await Task.Run(() => DesktopCropper.Crop(desktop, selection.Rect));
-        var record = await Task.Run(() => store.SaveImageAsync(image, source, desktop.CapturedAt));
-        logger.LogInformation("Captured {Target} {Rect} from {App}", selection.Target, selection.Rect, source.App);
 
-        if (!await clipboard.CopyAsync(image))
+        // Save and encode the clipboard PNG side by side. The clipboard gets the pixels even if
+        // the save fails, so a broken library never costs Matt the screenshot itself.
+        var save = Task.Run(() => store.SaveImageAsync(image, source, desktop.CapturedAt));
+        var png = Task.Run(() => EncodePng(image));
+        CaptureRecord? record = null;
+        Exception? saveError = null;
+        try
+        {
+            record = await save;
+        }
+        catch (Exception ex)
+        {
+            saveError = ex;
+        }
+
+        var copied = await clipboard.CopyAsync(image, await png);
+
+        if (record is null)
+        {
+            logger.LogError(saveError, "Capture {Rect} could not be saved", selection.Rect);
+            tray.Notify(
+                "Capture not saved",
+                (copied ? "It is on the clipboard. " : "") + (saveError?.Message ?? "Unknown error."));
+            return;
+        }
+
+        logger.LogInformation("Captured {Target} {Rect} from {App}", selection.Target, selection.Rect, source.App);
+        if (!copied)
         {
             tray.Notify("Snare", "Saved, but the clipboard was busy. Use Copy on the quick bar.");
         }
@@ -126,12 +153,43 @@ public sealed class CaptureService(
         ShowQuickBar(record, selection.Rect, desktop);
     }
 
+    /// <summary>Freezes the screen, closing the previous quick bar first so it can't be in the shot.</summary>
+    private FrozenDesktop Freeze()
+    {
+        _quickBar?.Close();
+        _quickBar = null;
+        return freezer.Freeze(options.CurrentValue.IncludeCursor);
+    }
+
+    private byte[]? EncodePng(Snare.Core.Imaging.PixelBuffer image)
+    {
+        try
+        {
+            using var bitmap = PixelBufferImages.ToBitmap(image);
+            return ImageCodec.EncodePng(bitmap);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not encode PNG clipboard data; copying the bitmap only");
+            return null;
+        }
+    }
+
     private void ShowQuickBar(CaptureRecord record, PixelRect rect, FrozenDesktop desktop)
     {
         var center = new PixelPoint(rect.X + (rect.Width / 2), rect.Y + (rect.Height / 2));
         var monitor = (desktop.MonitorAt(center) ?? desktop.MonitorAt(new PixelPoint(rect.X, rect.Y)) ?? desktop.Monitors[0]).Monitor;
         var viewModel = ActivatorUtilities.CreateInstance<QuickBarViewModel>(services, record, logger);
-        new QuickBarWindow(viewModel, rect, monitor).Show();
+        var quickBar = new QuickBarWindow(viewModel, rect, monitor);
+        quickBar.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_quickBar, quickBar))
+            {
+                _quickBar = null;
+            }
+        };
+        _quickBar = quickBar;
+        quickBar.Show();
     }
 
     private bool TryEnter()

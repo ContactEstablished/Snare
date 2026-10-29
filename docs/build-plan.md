@@ -359,7 +359,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 - [ ] Spike: ScreenRecorderLib records with mic, system audio and webcam overlay
 - [ ] Spike: SkiaSharp canvas in WPF draws and drags an arrow smoothly on a 5120×2880 capture
 
-**Phase 1: Capture and library**
+**Phase 1: Capture and library** (code-complete Oct 29, 2026; manual checks in [task.md](phases/1-capture/task.md))
 
 - [ ] Region, window and full-screen capture from the hotkey
 - [ ] Delayed capture and repeat last region
