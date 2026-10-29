@@ -146,12 +146,27 @@ public sealed class SqliteCaptureStore : ICaptureStore
     {
         ArgumentNullException.ThrowIfNull(document);
         await EnsureInitializedAsync(cancellationToken);
-        await using var db = new SnareDbContext(_dbOptions);
-        var row = await db.Captures.FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException($"No capture {id}.");
-        row.AnnotationJson = AnnotationJson.Serialize(document);
-        row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
-        await db.SaveChangesAsync(cancellationToken);
+
+        // Serialized with re-export and discard, so an autosave can't land after them.
+        await _save.WaitAsync(cancellationToken);
+        try
+        {
+            await using var db = new SnareDbContext(_dbOptions);
+            var row = await db.Captures.FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+                ?? throw new KeyNotFoundException($"No capture {id}.");
+            if (row.OriginalPath is null)
+            {
+                return; // discarded: there is no editable layer any more
+            }
+
+            row.AnnotationJson = AnnotationJson.Serialize(document);
+            row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        finally
+        {
+            _save.Release();
+        }
     }
 
     public async Task<CaptureRecord> ReexportAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default)
@@ -198,10 +213,16 @@ public sealed class SqliteCaptureStore : ICaptureStore
             throw new InvalidOperationException($"Capture {id} has no original; it can't be re-edited.");
         }
 
-        var options = _options.CurrentValue;
-        using (var original = await LoadSourceBitmapAsync(row.ToRecord(), cancellationToken))
-        using (var flattened = _renderer.Render(original, document))
+        var originalPath = row.OriginalPath;
+
+        // A discard that deleted the original but failed to update the row already wrote the
+        // redacted export; finishing it needs only the row.
+        var alreadyDeleted = discardOriginal && !File.Exists(originalPath);
+        if (!alreadyDeleted)
         {
+            var options = _options.CurrentValue;
+            using var original = await LoadSourceBitmapAsync(row.ToRecord(), cancellationToken);
+            using var flattened = _renderer.Render(original, document);
             var encoded = ExportEncoder.Encode(flattened, ExportEncoder.FormatOf(row.FilePath), options.JpegQuality);
             await WriteFileAsync(row.FilePath, encoded, cancellationToken);
             await WriteFileAsync(_paths.ThumbnailPathFor(id), ImageCodec.EncodeThumbnail(flattened), cancellationToken);
@@ -209,28 +230,34 @@ public sealed class SqliteCaptureStore : ICaptureStore
             row.Height = flattened.Height;
         }
 
-        var originalPath = row.OriginalPath;
+        if (discardOriginal)
+        {
+            // Delete before the row says "discarded": if the delete fails (a lock), the row still
+            // points at the original and the discard can be retried.
+            File.Delete(originalPath);
+        }
+
         row.AnnotationJson = discardOriginal ? null : AnnotationJson.Serialize(document);
         row.OriginalPath = discardOriginal ? null : row.OriginalPath;
         row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
         await db.SaveChangesAsync(cancellationToken);
 
-        if (discardOriginal)
-        {
-            File.Delete(originalPath);
-            _logger.LogInformation("Discarded the original of capture {Id}; its export is now permanent", id);
-        }
-        else
-        {
-            _logger.LogInformation("Re-exported capture {Id} to {Path}", id, row.FilePath);
-        }
-
+        _logger.LogInformation(
+            discardOriginal ? "Discarded the original of capture {Id}; {Path} is now its only copy" : "Re-exported capture {Id} to {Path}",
+            id, row.FilePath);
         return row.ToRecord();
     }
 
     private static async Task<SKBitmap> LoadSourceBitmapAsync(CaptureRecord record, CancellationToken cancellationToken)
     {
-        var path = record.OriginalPath is { } original && File.Exists(original) ? original : record.FilePath;
+        // A missing original must not quietly fall back to the export: annotations and crop
+        // would then be applied a second time on every save.
+        if (record.OriginalPath is { } original && !File.Exists(original))
+        {
+            throw new FileNotFoundException($"The original of capture {record.Id} is missing.", original);
+        }
+
+        var path = record.OriginalPath ?? record.FilePath;
         return ImageCodec.Decode(await File.ReadAllBytesAsync(path, cancellationToken));
     }
 

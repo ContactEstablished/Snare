@@ -38,6 +38,59 @@ public class RedactionProofTests
         Assert.Equal(original.GetPixel(Secret.Right, Secret.Bottom - 1), export.GetPixel(Secret.Right, Secret.Bottom - 1));
     }
 
+    [Theory]
+    [InlineData(RedactMode.Pixelate, 2)]
+    [InlineData(RedactMode.Blur, 3)]
+    public void BlurOrPixelate_OverASolidRedaction_CannotRevealIt(RedactMode mode, float strength)
+    {
+        using var original = BaseImages.Noise(200, 100);
+        var document = new AnnotationDocument
+        {
+            Canvas = new CanvasInfo(200, 100),
+            Objects =
+            [
+                new RedactAnnotation("r", Secret, RedactMode.Solid, "#000000"),
+                // Covers the secret and spills past it, and comes later in z-order.
+                new RedactAnnotation("o", new PixelRect(Secret.X - 10, Secret.Y - 5, Secret.Width + 20, Secret.Height + 10), mode, Strength: strength),
+            ],
+        };
+
+        using var export = new AnnotationRenderer().Render(original, document);
+
+        // Pixelate and blur of an all-black area stay black, away from the edges the blur may soften (3 sigma).
+        var margin = (int)Math.Max(8, (strength * 3) + 1);
+        for (var y = Secret.Y + margin; y < Secret.Bottom - margin; y++)
+        {
+            for (var x = Secret.X + margin; x < Secret.Right - margin; x++)
+            {
+                var c = export.GetPixel(x, y);
+                Assert.True(c.Red < 8 && c.Green < 8 && c.Blue < 8, $"({x}, {y}) is {c}");
+            }
+        }
+    }
+
+    [Fact]
+    public void SolidRedaction_WithResize_KeepsNoOriginalPixelsInside()
+    {
+        using var original = BaseImages.Noise(200, 100);
+        var document = new AnnotationDocument
+        {
+            Canvas = new CanvasInfo(200, 100, Resize: new PixelSize(100, 50)),
+            Objects = [new RedactAnnotation("r", Secret, RedactMode.Solid)],
+        };
+
+        using var export = new AnnotationRenderer().Render(original, document);
+
+        // Every output pixel whose source footprint is fully inside the box is pure black.
+        for (var y = (Secret.Y / 2) + 2; y < (Secret.Bottom / 2) - 2; y++)
+        {
+            for (var x = (Secret.X / 2) + 2; x < (Secret.Right / 2) - 2; x++)
+            {
+                Assert.Equal(SKColors.Black, export.GetPixel(x, y));
+            }
+        }
+    }
+
     [Fact]
     public void SolidRedaction_UnderAnotherAnnotation_StillCoversEverything()
     {

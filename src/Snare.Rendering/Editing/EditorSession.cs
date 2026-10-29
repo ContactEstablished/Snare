@@ -127,20 +127,23 @@ public sealed class EditorSession
         OnChanged();
     }
 
-    /// <summary>Restyles the selection (color, width, fill, font size) from a style.</summary>
-    public void ApplyStyleToSelection(ToolStyle style)
+    /// <summary>
+    /// Restyles the selection with one change (for example "color = blue"), applied to each
+    /// object's own style, so a mixed selection keeps everything the change doesn't touch.
+    /// </summary>
+    public void ApplyStyleToSelection(Func<ToolStyle, ToolStyle> change)
     {
-        ArgumentNullException.ThrowIfNull(style);
+        ArgumentNullException.ThrowIfNull(change);
+        EndGesture();
         var changes = SelectedObjects()
-            .Select(o => (Before: o, After: Restyle(o, style)))
+            .Select(o => (Before: o, After: Restyle(o, change(StyleOf(o)))))
             .Where(c => !Equals(c.Before, c.After))
             .ToList();
         if (changes.Count > 0)
         {
             Execute(new ReplaceObjectsCommand("Restyle", changes));
+            RememberColor(StyleOf(changes[0].After).Color);
         }
-
-        RememberColor(style.Color);
     }
 
     private void RememberColor(string color)
@@ -324,6 +327,7 @@ public sealed class EditorSession
 
     public void DeleteSelection()
     {
+        EndGesture();
         if (_selection.Count == 0)
         {
             return;
@@ -337,6 +341,7 @@ public sealed class EditorSession
     /// <summary>Arrow keys move the selection 1 px, or 10 px with Shift.</summary>
     public void Nudge(int dx, int dy)
     {
+        EndGesture();
         var changes = SelectedObjects().Select(o => (Before: o, After: AnnotationGeometry.Translate(o, dx, dy))).ToList();
         if (changes.Count > 0)
         {
@@ -360,6 +365,7 @@ public sealed class EditorSession
     /// </summary>
     public void CommitText(TextAnnotation target, string text)
     {
+        EndGesture();
         ArgumentNullException.ThrowIfNull(target);
         text ??= "";
         var existing = Document.Find(target.Id);
@@ -389,6 +395,7 @@ public sealed class EditorSession
     /// <summary>Enter with the Crop tool: applies the frame drawn, then returns to Select.</summary>
     public void ApplyCrop()
     {
+        EndGesture();
         if (PendingCrop is not { } crop)
         {
             return;
@@ -403,6 +410,7 @@ public sealed class EditorSession
 
     public void ClearCrop()
     {
+        EndGesture();
         var before = Document.Canvas;
         if (before.Crop is not null)
         {
@@ -416,6 +424,7 @@ public sealed class EditorSession
     /// <summary>Sets the exported size (after the crop); null restores the natural size.</summary>
     public void Resize(PixelSize? size)
     {
+        EndGesture();
         if (size is { } s && (s.Width < 1 || s.Height < 1))
         {
             throw new ArgumentOutOfRangeException(nameof(size), size, "The output size must be at least 1x1.");
@@ -434,6 +443,7 @@ public sealed class EditorSession
 
     public void Undo()
     {
+        EndGesture();
         if (History.Undo() is not null)
         {
             AfterHistoryChange();
@@ -442,6 +452,7 @@ public sealed class EditorSession
 
     public void Redo()
     {
+        EndGesture();
         if (History.Redo() is not null)
         {
             AfterHistoryChange();
@@ -605,6 +616,30 @@ public sealed class EditorSession
         }
     }
 
+    /// <summary>
+    /// The pointer was lost mid-gesture (Alt+Tab, capture stolen): a move or resize is kept and
+    /// recorded for undo; anything being drawn is dropped.
+    /// </summary>
+    public void PointerCancel()
+    {
+        EndGesture();
+        OnChanged();
+    }
+
+    /// <summary>Before any other edit: finish a drag as an undoable change, or drop a half-drawn shape.</summary>
+    private void EndGesture()
+    {
+        if (_gesture is Gesture.Moving or Gesture.Resizing)
+        {
+            FinishDrag();
+            _gesture = Gesture.None;
+        }
+        else
+        {
+            CancelGesture();
+        }
+    }
+
     private void CancelGesture()
     {
         if (_gesture is Gesture.Moving or Gesture.Resizing)
@@ -623,6 +658,7 @@ public sealed class EditorSession
 
     private void Arrange(Func<List<string>, List<string>> reorder)
     {
+        EndGesture();
         if (_selection.Count == 0)
         {
             return;

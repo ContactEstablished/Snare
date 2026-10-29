@@ -15,12 +15,19 @@ public sealed class EditorService(
     ILogger<EditorService> logger)
 {
     private readonly Dictionary<Guid, EditorWindow> _open = [];
+    private readonly HashSet<Guid> _opening = [];
 
     public async Task OpenAsync(Guid captureId)
     {
         if (_open.TryGetValue(captureId, out var existing))
         {
             existing.Activate();
+            return;
+        }
+
+        // A second click while the first is still loading must not open a second window.
+        if (!_opening.Add(captureId))
+        {
             return;
         }
 
@@ -49,6 +56,10 @@ public sealed class EditorService(
         {
             logger.LogError(ex, "Could not open capture {Id} in the editor", captureId);
             tray.Notify("Can't open the editor", ex.Message);
+        }
+        finally
+        {
+            _opening.Remove(captureId);
         }
     }
 

@@ -33,6 +33,12 @@ public sealed class AnnotationRenderer
         ArgumentNullException.ThrowIfNull(original);
         ArgumentNullException.ThrowIfNull(document);
 
+        // Blur and pixelate sample pixels. If they sampled the raw original, one drawn over (or
+        // beside) a solid redaction would paint the secret back. They sample a copy with every
+        // solid redaction already applied instead.
+        using var redactedSource = HasSolidAndSampled(document) ? WithSolidRedactions(original, document) : null;
+        var sampleSource = redactedSource ?? original;
+
         var step = 0;
         foreach (var item in document.Objects)
         {
@@ -41,8 +47,24 @@ public sealed class AnnotationRenderer
                 step++;
             }
 
-            AnnotationPainter.Paint(canvas, original, item, step);
+            AnnotationPainter.Paint(canvas, sampleSource, item, step);
         }
+    }
+
+    private static bool HasSolidAndSampled(AnnotationDocument document) =>
+        document.Objects.OfType<RedactAnnotation>().Any(r => r.Mode == RedactMode.Solid)
+        && document.Objects.OfType<RedactAnnotation>().Any(r => r.Mode != RedactMode.Solid);
+
+    private static SKImage WithSolidRedactions(SKImage original, AnnotationDocument document)
+    {
+        using var surface = SKSurface.Create(new SKImageInfo(original.Width, original.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+        surface.Canvas.DrawImage(original, 0, 0, SKSamplingOptions.Default);
+        foreach (var solid in document.Objects.OfType<RedactAnnotation>().Where(r => r.Mode == RedactMode.Solid))
+        {
+            AnnotationPainter.Paint(surface.Canvas, original, solid, 0);
+        }
+
+        return surface.Snapshot();
     }
 
     /// <summary>The flattened export: original plus annotations, cropped, then resized.</summary>
@@ -51,18 +73,29 @@ public sealed class AnnotationRenderer
         ArgumentNullException.ThrowIfNull(original);
         ArgumentNullException.ThrowIfNull(document);
 
+        // Flatten at native size first, then scale the result. Scaling while drawing would let
+        // resampling mix original pixels from under a solid redaction into its edges.
         var area = document.Canvas.ExportArea;
         var size = document.Canvas.OutputSize;
-        var result = new SKBitmap(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
-        using var image = SKImage.FromBitmap(original);
-        using var canvas = new SKCanvas(result);
-        canvas.Clear(SKColors.Black);
-        canvas.Scale((float)size.Width / area.Width, (float)size.Height / area.Height);
-        canvas.Translate(-area.X, -area.Y);
-        canvas.ClipRect(new SKRect(area.X, area.Y, area.Right, area.Bottom));
-        Draw(canvas, image, document, size.Width == area.Width && size.Height == area.Height
-            ? new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None)
-            : ExportSampling);
-        return result;
+        var native = new SKBitmap(new SKImageInfo(area.Width, area.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+        using (var image = SKImage.FromBitmap(original))
+        using (var canvas = new SKCanvas(native))
+        {
+            canvas.Clear(SKColors.Black);
+            canvas.Translate(-area.X, -area.Y);
+            canvas.ClipRect(new SKRect(area.X, area.Y, area.Right, area.Bottom));
+            Draw(canvas, image, document, new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None));
+        }
+
+        if (size.Width == area.Width && size.Height == area.Height)
+        {
+            return native;
+        }
+
+        using (native)
+        {
+            return native.Resize(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul), ExportSampling)
+                ?? throw new InvalidOperationException("SkiaSharp could not resize the export.");
+        }
     }
 }

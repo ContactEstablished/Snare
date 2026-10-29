@@ -106,6 +106,61 @@ public class CaptureEditingTests
     }
 
     [Fact]
+    public async Task DiscardOriginal_WhenTheDeleteFails_CanBeRetried()
+    {
+        using var library = new TempLibrary();
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+
+        // An open handle without delete sharing makes File.Delete fail, like an indexer lock.
+        await using (new FileStream(record.OriginalPath!, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            await Assert.ThrowsAsync<IOException>(() => library.Store.DiscardOriginalAsync(record.Id, Redacted(), Ct));
+            Assert.Equal(record.OriginalPath, (await library.Store.GetAsync(record.Id, Ct))!.OriginalPath);
+        }
+
+        var retried = await library.Store.DiscardOriginalAsync(record.Id, Redacted(), Ct);
+
+        Assert.Null(retried.OriginalPath);
+        Assert.False(File.Exists(record.OriginalPath));
+    }
+
+    [Fact]
+    public async Task DiscardOriginal_FinishesWhenOnlyTheRowUpdateWasLost()
+    {
+        using var library = new TempLibrary();
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        await library.Store.ReexportAsync(record.Id, Redacted(), Ct);
+        File.Delete(record.OriginalPath!); // as if a previous discard crashed after deleting
+
+        var discarded = await library.Store.DiscardOriginalAsync(record.Id, Redacted(), Ct);
+
+        Assert.Null(discarded.OriginalPath);
+    }
+
+    [Fact]
+    public async Task MissingOriginal_IsNotSilentlyReplacedByTheExport()
+    {
+        using var library = new TempLibrary();
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        File.Delete(record.OriginalPath!);
+
+        await Assert.ThrowsAsync<FileNotFoundException>(() => library.Store.LoadOriginalAsync(record.Id, Ct));
+        await Assert.ThrowsAsync<FileNotFoundException>(() => library.Store.ReexportAsync(record.Id, Redacted(), Ct));
+    }
+
+    [Fact]
+    public async Task SaveAnnotations_AfterADiscard_IsIgnored()
+    {
+        using var library = new TempLibrary();
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        await library.Store.DiscardOriginalAsync(record.Id, Redacted(), Ct);
+
+        await library.Store.SaveAnnotationsAsync(record.Id, Redacted(), Ct);
+
+        Assert.Null((await library.Store.GetAsync(record.Id, Ct))!.AnnotationJson);
+    }
+
+    [Fact]
     public async Task UnknownCapture_Throws()
     {
         using var library = new TempLibrary();

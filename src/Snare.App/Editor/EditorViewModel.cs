@@ -34,6 +34,7 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
     private readonly IOptionsMonitor<SnareOptions> _options;
     private readonly ILogger _logger;
     private CancellationTokenSource? _autosave;
+    private Task _autosaveWrite = Task.CompletedTask;
     private string _savedJson;
     private string _exportedJson;
 
@@ -254,17 +255,22 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
         Status = await _clipboard.CopyAsync(buffer, png) ? "Copied" : "Clipboard busy";
     }
 
-    /// <summary>Ctrl+S: re-exports if anything changed since the last export.</summary>
+    /// <summary>
+    /// Ctrl+S: re-exports if anything changed since the last export. Returns false if the
+    /// export failed; the edits are then still kept as annotation JSON when possible.
+    /// </summary>
     [RelayCommand]
-    public async Task SaveAsync()
+    public async Task<bool> SaveAsync()
     {
         CancelAutosave();
+        await WaitForAutosaveWriteAsync();
+
         var document = Session.ToDocument();
         var json = AnnotationJson.Serialize(document);
         if (json == _exportedJson)
         {
             Status = "Saved";
-            return;
+            return true;
         }
 
         Status = "Saving…";
@@ -275,11 +281,41 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
             Session.MarkSaved();
             Status = "Saved";
             WeakReferenceMessenger.Default.Send(new CaptureUpdatedMessage(Capture));
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Could not save capture {Id}", Capture.Id);
             Status = $"Save failed: {ex.Message}";
+        }
+
+        // The image couldn't be updated; at least keep the edits so reopening shows them.
+        try
+        {
+            if (json != _savedJson)
+            {
+                await _store.SaveAnnotationsAsync(Capture.Id, document);
+                _savedJson = json;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not keep the edits of capture {Id} either", Capture.Id);
+        }
+
+        return false;
+    }
+
+    /// <summary>An autosave already writing must finish before a re-export, or it could land after it.</summary>
+    private async Task WaitForAutosaveWriteAsync()
+    {
+        try
+        {
+            await _autosaveWrite;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "The pending autosave failed; the save below supersedes it");
         }
     }
 
@@ -317,6 +353,7 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
         }
 
         CancelAutosave();
+        await WaitForAutosaveWriteAsync();
         var document = Session.ToDocument();
         try
         {
@@ -349,7 +386,7 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
         if (Tool == EditorTool.Select && Session.SelectedItems.Count > 0)
         {
             var styled = change(DisplayedStyle);
-            Session.ApplyStyleToSelection(styled);
+            Session.ApplyStyleToSelection(change);
 
             // Selected objects also update their tool's remembered style, as if drawn that way.
             Session.SetStyle(StyleTool, styled);
@@ -383,7 +420,9 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
             var json = AnnotationJson.Serialize(document);
             if (json != _savedJson)
             {
-                await _store.SaveAnnotationsAsync(Capture.Id, document, cts.Token);
+                // Not cancellable once started; SaveAsync waits for it instead.
+                _autosaveWrite = _store.SaveAnnotationsAsync(Capture.Id, document, CancellationToken.None);
+                await _autosaveWrite;
                 _savedJson = json;
                 Status = NeedsExport ? "Edits kept · Save to update the image" : "Saved";
             }

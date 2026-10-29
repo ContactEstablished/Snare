@@ -229,9 +229,9 @@ internal sealed partial class EditorWindow : Window
     /// <summary>Saves pending edits, then drags the export file out, if the button is still held.</summary>
     private async Task DragOutAsync()
     {
-        if (_viewModel.NeedsExport)
+        if (_viewModel.NeedsExport && !await _viewModel.SaveAsync())
         {
-            await _viewModel.SaveAsync();
+            return; // don't drag out a stale image
         }
 
         if (Mouse.LeftButton == MouseButtonState.Pressed)
@@ -251,8 +251,26 @@ internal sealed partial class EditorWindow : Window
         }
 
         e.Cancel = true;
-        await _viewModel.SaveAsync();
-        _closingAfterSave = true;
-        Close();
+        if (await _viewModel.SaveAsync())
+        {
+            _closingAfterSave = true;
+            Close();
+            return;
+        }
+
+        // The image couldn't be updated: stay open so nothing is lost. A second close asks.
+        var answer = MessageBox.Show(
+            this,
+            $"{_viewModel.Status}\n\nYour edits are kept and will be there next time you open this capture, " +
+            "but the library image wasn't updated. Close anyway?",
+            "Couldn't save the image",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (answer == MessageBoxResult.Yes)
+        {
+            _closingAfterSave = true;
+            Close();
+        }
     }
 }

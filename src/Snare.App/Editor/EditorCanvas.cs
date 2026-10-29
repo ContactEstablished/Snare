@@ -248,6 +248,22 @@ internal sealed class EditorCanvas : SKElement
         }
     }
 
+    /// <summary>Alt+Tab or another app stealing the mouse mid-drag: keep the move as an undoable step.</summary>
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        if (_panning)
+        {
+            _panning = false;
+            return;
+        }
+
+        if (e.LeftButton == MouseButtonState.Pressed || Mouse.LeftButton == MouseButtonState.Pressed)
+        {
+            _viewModel.Session.PointerCancel();
+        }
+    }
+
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
@@ -280,7 +296,8 @@ internal sealed class EditorCanvas : SKElement
 
     private void AfterZoom()
     {
-        _viewModel.ZoomText = $"{Math.Round(_scale / _pixelsPerDip * 100)}%";
+        // 100% means one image pixel per screen pixel (what Ctrl+1 shows).
+        _viewModel.ZoomText = $"{Math.Round(_scale * 100)}%";
         InvalidateVisual();
     }
 

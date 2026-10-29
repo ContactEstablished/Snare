@@ -130,6 +130,23 @@ public sealed class EditorSmokeTests : IDisposable
         Assert.Equal(1, store.ReexportCount);
     }
 
+    [Fact]
+    public async Task Save_WhenTheExportFails_ReportsItAndKeepsTheEdits()
+    {
+        var store = new FakeCaptureStore { FailReexport = true };
+        using var viewModel = ViewModel(store);
+        viewModel.Tool = EditorTool.Step;
+        viewModel.Session.PointerDown(new SKPoint(20, 20));
+        viewModel.Session.PointerUp(new SKPoint(20, 20));
+
+        var saved = await viewModel.SaveAsync();
+
+        Assert.False(saved);
+        Assert.True(viewModel.NeedsExport);
+        Assert.Equal(1, store.AnnotationSaves);
+        Assert.StartsWith("Save failed", viewModel.Status, StringComparison.Ordinal);
+    }
+
     private sealed class StaticOptions : IOptionsMonitor<SnareOptions>
     {
         public SnareOptions CurrentValue { get; } = new();

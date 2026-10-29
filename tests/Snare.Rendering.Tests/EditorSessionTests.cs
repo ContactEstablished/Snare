@@ -390,11 +390,73 @@ public sealed class EditorSessionTests : IDisposable
         var s = Session(Box("a", 0, 0), Box("b", 50, 0));
         s.SelectAll();
 
-        s.ApplyStyleToSelection(new ToolStyle("#1E88E5", 8, FillColor: null));
+        s.ApplyStyleToSelection(st => st with { Color = "#1E88E5", Width = 8, FillColor = null });
 
         Assert.All(s.Objects.Cast<RectangleAnnotation>(), r => Assert.Equal(("#1E88E5", 8f, (string?)null), (r.Stroke, r.StrokeWidth, r.Fill)));
         s.Undo();
         Assert.All(s.Objects.Cast<RectangleAnnotation>(), r => Assert.Equal("#E53935", r.Stroke));
+    }
+
+    [Fact]
+    public void Restyle_MixedSelection_ChangesOnlyWhatChanged()
+    {
+        var step = new StepAnnotation("s", new PixelPoint(50, 50), "#E53935", 18);
+        var text = new TextAnnotation("t", new PixelPoint(100, 100), "Hi", "#000000", 40, Background: "#DD000000", Bold: true);
+        var arrow = new ArrowAnnotation("a", new PixelPoint(0, 0), new PixelPoint(50, 0), "#000000", 6, ArrowHeadStyle.Open);
+        var s = Session(step, text, arrow);
+        s.SelectAll();
+
+        s.ApplyStyleToSelection(st => st with { Color = "#1E88E5" });
+
+        Assert.Equal(step with { Fill = "#1E88E5" }, s.Objects[0]);
+        Assert.Equal(text with { Color = "#1E88E5" }, s.Objects[1]);
+        Assert.Equal(arrow with { Stroke = "#1E88E5" }, s.Objects[2]);
+    }
+
+    [Fact]
+    public void UndoDuringADrag_FinishesTheDragFirst_AndStaysConsistent()
+    {
+        var s = Session(Box("a", 10, 10));
+        s.PointerDown(new SKPoint(30, 25));
+        s.PointerMove(new SKPoint(80, 75));
+
+        s.Undo(); // undoes the move just made
+        s.PointerMove(new SKPoint(120, 120)); // no gesture any more: ignored
+        s.PointerUp(new SKPoint(120, 120));
+
+        Assert.Equal(new PixelRect(10, 10, 40, 30), ((RectangleAnnotation)s.Objects[0]).Bounds);
+        s.Redo();
+        Assert.Equal(new PixelRect(60, 60, 40, 30), ((RectangleAnnotation)s.Objects[0]).Bounds);
+    }
+
+    [Fact]
+    public void DeleteDuringADrag_DoesNotBreakTheSession()
+    {
+        var s = Session(Box("a", 10, 10));
+        s.PointerDown(new SKPoint(30, 25));
+        s.PointerMove(new SKPoint(80, 75));
+
+        s.DeleteSelection();
+        s.PointerMove(new SKPoint(100, 100));
+        s.PointerUp(new SKPoint(100, 100));
+
+        Assert.Empty(s.Objects);
+        s.Undo();
+        s.Undo();
+        Assert.Equal(new PixelRect(10, 10, 40, 30), ((RectangleAnnotation)Assert.Single(s.Objects)).Bounds);
+    }
+
+    [Fact]
+    public void PointerCancel_KeepsAMoveAsAnUndoableStep()
+    {
+        var s = Session(Box("a", 10, 10));
+        s.PointerDown(new SKPoint(30, 25));
+        s.PointerMove(new SKPoint(40, 35));
+
+        s.PointerCancel();
+
+        Assert.True(s.History.CanUndo);
+        Assert.True(s.HasUnsavedChanges);
     }
 
     [Fact]

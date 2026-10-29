@@ -1,3 +1,4 @@
+using System.IO;
 using Snare.Core.Annotations;
 using Snare.Core.Captures;
 using Snare.Core.Imaging;
@@ -42,14 +43,26 @@ internal sealed class FakeCaptureStore : ICaptureStore
     public Task<PixelBuffer> LoadOriginalAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(PixelBuffer.Filled(800, 600, 0xFF336699));
 
-    public Task SaveAnnotationsAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+    public Task SaveAnnotationsAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default)
+    {
+        AnnotationSaves++;
+        return Task.CompletedTask;
+    }
 
     public int ReexportCount { get; private set; }
+
+    public bool FailReexport { get; set; }
+
+    public int AnnotationSaves { get; private set; }
 
     public Task<CaptureRecord> ReexportAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default)
     {
         ReexportCount++;
+        if (FailReexport)
+        {
+            throw new IOException("The export is locked.");
+        }
+
         return Task.FromResult(Captures.First(c => c.Id == id));
     }
 

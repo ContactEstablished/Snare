@@ -10,7 +10,7 @@ See [spec.md](spec.md).
 - [x] Library: `LoadOriginalAsync`, `SaveAnnotationsAsync`, `ReexportAsync`, `DiscardOriginalAsync`, `ExportEncoder`, plus tests (including "discard leaves no secret pixels")
 - [x] App: editor window (canvas, toolbar, zoom and pan, text editing, autosave, save, Save As, copy, drag-out, discard original), plus off-screen smoke tests
 - [x] App: open from the quick bar (Edit), the library (double-click, Enter, context menu Edit) and `AfterCapture: "Editor"`; persisted tool styles
-- [ ] Code review, merge, push
+- [x] Code review, merge, push
 
 ## Not in this phase
 
@@ -65,3 +65,10 @@ Capture something first (Phase 1 checks), then open it with the quick bar's **Ed
 - [ ] **Open editor after capture:** set `"AfterCapture": "Editor"` in `appsettings.json`, restart, and capture. The editor opens instead of the quick bar.
 - [ ] **Remembered styles:** change the arrow color and size, close the editor, restart Snare. A new arrow uses the same style.
 - [ ] **Smoothness on a big capture:** capture both monitors (`A`, 5120×2880), open it, and drag an arrow around at fit zoom. If it feels sluggish, note it here; the fix is switching the canvas to `SKGLElement` (GPU).
+
+## Known gaps (from review, deferred)
+
+- Tray → Exit closes editors without saving their last 1.5 s of edits (`Application.Shutdown` ignores `Closing` cancellation). Phase 6 adds an exit flush.
+- Dragging a style slider with a selection records one undo step per tick.
+- Text uses Skia without font fallback, so emoji and CJK characters render as boxes in the export.
+- `EditorStyleStore` reads and writes its small JSON file on the UI thread.
