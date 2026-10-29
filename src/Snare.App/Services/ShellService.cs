@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Snare.App.Capture;
+using Snare.App.Library;
 using Snare.App.Spikes;
 using Snare.Core.Hotkeys;
 
@@ -8,6 +10,8 @@ namespace Snare.App.Services;
 public sealed class ShellService(
     TrayIconService tray,
     HotkeyService hotkeys,
+    CaptureService capture,
+    LibraryWindowService library,
     FreezeOverlaySpike freezeOverlay,
     SkiaCanvasSpike skiaCanvas,
     RecordingSpikeRunner recordingSpike,
@@ -15,7 +19,12 @@ public sealed class ShellService(
 {
     public void Start()
     {
-        tray.Show();
+        tray.Show(new TrayMenuActions(
+            Capture: () => _ = capture.CaptureAsync(),
+            CaptureAfterDelay: seconds => _ = capture.CaptureAsync(seconds),
+            OpenLibrary: library.Show));
+
+        // Phase 0 harnesses stay until their manual checks in docs/phases/0-foundation/task.md are ticked.
         tray.AddSpike("Freeze overlay", freezeOverlay.Run);
         tray.AddSpike("Skia canvas (5120×2880 pattern)", skiaCanvas.RunWithTestPattern);
         tray.AddSpike("Record 22 s test (mic, system audio, webcam)", recordingSpike.Run);
@@ -28,14 +37,17 @@ public sealed class ShellService(
 
     private void OnHotkeyPressed(object? sender, HotkeyAction action)
     {
+        // CaptureService catches and reports its own failures, so these are fire-and-forget.
         switch (action)
         {
             case HotkeyAction.CaptureImage:
-                // Phase 0: PrtSc opens the freeze overlay spike. Phase 1 starts a real capture.
-                freezeOverlay.Run();
+                _ = capture.CaptureAsync();
+                break;
+            case HotkeyAction.RepeatLastRegion:
+                _ = capture.RepeatLastRegionAsync();
                 break;
             default:
-                logger.LogInformation("Hotkey action {Action} has no handler yet", action);
+                logger.LogInformation("Hotkey action {Action} arrives in a later phase", action);
                 break;
         }
     }

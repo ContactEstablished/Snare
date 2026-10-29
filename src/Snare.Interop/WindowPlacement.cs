@@ -16,6 +16,11 @@ public static class WindowPlacement
         PInvoke.SetWindowPos((HWND)windowHandle, TopMost, x, y, width, height,
             SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
 
+    /// <summary>Moves a window's top-left to a physical point, keeping its size, on top, without activating it.</summary>
+    public static bool MoveTopmost(nint windowHandle, int x, int y) =>
+        PInvoke.SetWindowPos((HWND)windowHandle, TopMost, x, y, 0, 0,
+            SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE);
+
     /// <summary>The cursor position in physical virtual-desktop pixels.</summary>
     public static (int X, int Y) GetCursorPosition() =>
         PInvoke.GetCursorPos(out var point) ? (point.X, point.Y) : (0, 0);

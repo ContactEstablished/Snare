@@ -20,6 +20,7 @@ public sealed class HotkeyService(ILogger<HotkeyService> logger) : IDisposable
         new(1, HotkeyAction.CaptureImage, HotkeyModifiers.None, "PrtSc"),
         new(2, HotkeyAction.RecordVideo, HotkeyModifiers.Shift, "Shift+PrtSc"),
         new(3, HotkeyAction.CaptureScrolling, HotkeyModifiers.Control | HotkeyModifiers.Shift, "Ctrl+Shift+PrtSc"),
+        new(4, HotkeyAction.RepeatLastRegion, HotkeyModifiers.Control, "Ctrl+PrtSc"),
     ];
 
     private readonly List<HotkeyBinding> _registered = [];

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Builds Snare's windows without showing them, so XAML and render errors fail in CI, not on Matt's desktop. -->
+  <PropertyGroup>
+    <TargetFramework>$(SnareWindowsTargetFramework)</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Snare.App\Snare.App.csproj" />
+  </ItemGroup>
+
+</Project>
