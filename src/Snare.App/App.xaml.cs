@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using Snare.App.Infrastructure;
 using Snare.App.Services;
+using Snare.App.Spikes;
 using Snare.Capture;
 using Snare.Core.Options;
 using Snare.Library;
@@ -44,6 +45,7 @@ public partial class App : Application
         builder.Services.AddSingleton<TrayIconService>();
         builder.Services.AddSingleton<HotkeyService>();
         builder.Services.AddSingleton<ShellService>();
+        builder.Services.AddSingleton<FreezeOverlaySpike>();
 
         _host = builder.Build();
         _host.Start();

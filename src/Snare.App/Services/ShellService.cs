@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Snare.App.Spikes;
 using Snare.Core.Hotkeys;
 
 namespace Snare.App.Services;
@@ -7,11 +8,13 @@ namespace Snare.App.Services;
 public sealed class ShellService(
     TrayIconService tray,
     HotkeyService hotkeys,
+    FreezeOverlaySpike freezeOverlay,
     ILogger<ShellService> logger)
 {
     public void Start()
     {
         tray.Show();
+        tray.AddSpike("Freeze overlay", freezeOverlay.Run);
 
         hotkeys.Pressed += OnHotkeyPressed;
         hotkeys.Start();
@@ -20,7 +23,15 @@ public sealed class ShellService(
 
     private void OnHotkeyPressed(object? sender, HotkeyAction action)
     {
-        // Phase 0: the hotkeys only prove they fire. Phase 1 starts real captures here.
-        logger.LogInformation("Hotkey action {Action} has no handler yet", action);
+        switch (action)
+        {
+            case HotkeyAction.CaptureImage:
+                // Phase 0: PrtSc opens the freeze overlay spike. Phase 1 starts a real capture.
+                freezeOverlay.Run();
+                break;
+            default:
+                logger.LogInformation("Hotkey action {Action} has no handler yet", action);
+                break;
+        }
     }
 }
