@@ -271,6 +271,77 @@ public sealed partial class SqliteCaptureStore : ICaptureStore, ICaptureCatalog
         return ImageCodec.Decode(await File.ReadAllBytesAsync(path, cancellationToken));
     }
 
+    public string NewVideoPath(DateTimeOffset capturedAt) => _paths.UniqueVideoPathFor(capturedAt, File.Exists);
+
+    public async Task<CaptureRecord> SaveVideoAsync(
+        string path, int width, int height, long durationMs, CaptureSource source, DateTimeOffset capturedAt, byte[]? thumbnailPng,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(source);
+        await EnsureInitializedAsync(cancellationToken);
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("The recording is missing.", path);
+        }
+
+        var id = Guid.CreateVersion7(capturedAt);
+        await WriteVideoThumbnailAsync(id, thumbnailPng, cancellationToken);
+
+        using var gate = await WriteGateAsync(cancellationToken);
+        await using var db = new SnareDbContext(_dbOptions);
+        var entity = new CaptureEntity
+        {
+            Id = id,
+            Kind = CaptureKind.Video,
+            FilePath = Path.GetFullPath(path),
+            Width = width,
+            Height = height,
+            DurationMs = durationMs,
+            CreatedUtc = capturedAt.UtcDateTime,
+            ModifiedUtc = _clock.GetUtcNow().UtcDateTime,
+            SourceApp = source.App,
+            SourceWindowTitle = source.WindowTitle,
+            OcrText = "", // videos aren't OCR'd
+        };
+        db.Captures.Add(entity);
+        await SaveAndReindexAsync(db, [id], cancellationToken);
+        _logger.LogInformation("Saved recording {Id} ({Duration} ms) at {Path}", id, durationMs, path);
+        return entity.ToRecord();
+    }
+
+    public async Task<CaptureRecord> UpdateVideoAsync(Guid id, long durationMs, byte[]? thumbnailPng, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken);
+        await WriteVideoThumbnailAsync(id, thumbnailPng, cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
+        await using var db = new SnareDbContext(_dbOptions);
+        var row = await RequireAsync(db, id, cancellationToken);
+        row.DurationMs = durationMs;
+        row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
+        await db.SaveChangesAsync(cancellationToken);
+        return row.ToRecord();
+    }
+
+    /// <summary>A video's thumbnail comes from FFmpeg as PNG; the library keeps WebP like every other.</summary>
+    private async Task WriteVideoThumbnailAsync(Guid id, byte[]? png, CancellationToken cancellationToken)
+    {
+        if (png is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var bitmap = ImageCodec.Decode(png);
+            await WriteFileAsync(_paths.ThumbnailPathFor(id), ImageCodec.EncodeThumbnail(bitmap), cancellationToken);
+        }
+        catch (InvalidDataException ex)
+        {
+            _logger.LogWarning(ex, "Ignoring an unreadable thumbnail for recording {Id}", id);
+        }
+    }
+
     public async Task<IReadOnlyList<CaptureRecord>> ListAsync(CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);

@@ -60,6 +60,14 @@ public sealed class LibraryPaths
         return path;
     }
 
+    /// <summary>A recording's path, named like a still capture but .mp4, with the same _n suffixes.</summary>
+    public string UniqueVideoPathFor(DateTimeOffset capturedAt, Func<string, bool> exists)
+    {
+        ArgumentNullException.ThrowIfNull(exists);
+        var png = UniqueExportPathFor(capturedAt, ExportFormat.Png, p => exists(Path.ChangeExtension(p, ".mp4")));
+        return Path.ChangeExtension(png, ".mp4");
+    }
+
     public string OriginalPathFor(Guid id) => Path.Combine(OriginalsFolder, $"{id:N}.png");
 
     public string ThumbnailPathFor(Guid id) => Path.Combine(ThumbnailsFolder, $"{id:N}.webp");

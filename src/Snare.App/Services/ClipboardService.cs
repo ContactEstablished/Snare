@@ -26,6 +26,15 @@ public sealed class ClipboardService(ILogger<ClipboardService> logger)
         return SetAsync(bitmap, png);
     }
 
+    /// <summary>Copies a file as a file drop (paste into Explorer, Slack, email). Call on the UI thread.</summary>
+    public async Task<bool> CopyFileDropAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var data = new DataObject();
+        data.SetFileDropList([path]);
+        return await SetDataAsync(data);
+    }
+
     /// <summary>Copies plain text (Grab Text). Call on the UI thread.</summary>
     public async Task<bool> CopyTextAsync(string text)
     {

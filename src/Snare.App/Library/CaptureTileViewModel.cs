@@ -12,7 +12,7 @@ public sealed partial class CaptureTileViewModel(CaptureRecord capture) : Observ
     public partial ImageSource? Thumbnail { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Caption), nameof(Details), nameof(ToolTip))]
+    [NotifyPropertyChangedFor(nameof(Caption), nameof(Details), nameof(ToolTip), nameof(Badge))]
     public partial CaptureRecord Capture { get; set; } = capture;
 
     public string When => Capture.CreatedUtc.ToLocalTime().ToString("MMM d, yyyy  h:mm tt", CultureInfo.CurrentCulture);
@@ -24,6 +24,13 @@ public sealed partial class CaptureTileViewModel(CaptureRecord capture) : Observ
         $"{Capture.Width} × {Capture.Height}{(string.IsNullOrEmpty(Capture.SourceApp) ? "" : $" · {Capture.SourceApp}")}");
 
     public string ToolTip => Capture.SourceWindowTitle ?? Capture.FilePath;
+
+    public bool IsVideo => Capture.Kind == CaptureKind.Video;
+
+    /// <summary>"▶ 1:05" on recordings.</summary>
+    public string Badge => IsVideo
+        ? "▶ " + TimeSpan.FromMilliseconds(Capture.DurationMs ?? 0).ToString(Capture.DurationMs >= 3_600_000 ? @"h\:mm\:ss" : @"m\:ss", CultureInfo.InvariantCulture)
+        : "";
 
     public async Task LoadThumbnailAsync(string path) => Thumbnail = await ThumbnailLoader.LoadAsync(path);
 }

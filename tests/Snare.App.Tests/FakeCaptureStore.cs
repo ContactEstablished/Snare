@@ -70,6 +70,24 @@ internal sealed class FakeCaptureStore : ICaptureStore, ICaptureCatalog
     public Task<CaptureRecord> DiscardOriginalAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
         Task.FromResult(Captures.First(c => c.Id == id) with { OriginalPath = null });
 
+    public string NewVideoPath(DateTimeOffset capturedAt) => Path.Combine(Path.GetTempPath(), $"snare-test-{Guid.NewGuid():N}.mp4");
+
+    public Task<CaptureRecord> SaveVideoAsync(
+        string path, int width, int height, long durationMs, CaptureSource source, DateTimeOffset capturedAt, byte[]? thumbnailPng,
+        CancellationToken cancellationToken = default)
+    {
+        var record = Record(0) with { Kind = CaptureKind.Video, FilePath = path, Width = width, Height = height, DurationMs = durationMs };
+        Captures.Add(record);
+        return Task.FromResult(record);
+    }
+
+    public Task<CaptureRecord> UpdateVideoAsync(Guid id, long durationMs, byte[]? thumbnailPng, CancellationToken cancellationToken = default)
+    {
+        var index = Captures.FindIndex(c => c.Id == id);
+        Captures[index] = Captures[index] with { DurationMs = durationMs };
+        return Task.FromResult(Captures[index]);
+    }
+
     // ---- ICaptureCatalog, in memory ----
 
     public Dictionary<Guid, List<string>> TagsById { get; } = [];

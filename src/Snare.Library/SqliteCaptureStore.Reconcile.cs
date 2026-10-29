@@ -31,7 +31,7 @@ public sealed partial class SqliteCaptureStore
             rows = await db.Captures.AsNoTracking().ToListAsync(cancellationToken);
         }
 
-        foreach (var row in rows.Where(r => !r.IsDeleted && r.Kind != CaptureKind.Video && !File.Exists(r.FilePath)))
+        foreach (var row in rows.Where(r => !r.IsDeleted && !File.Exists(r.FilePath)))
         {
             if (row.OriginalPath is { } original && File.Exists(original))
             {
