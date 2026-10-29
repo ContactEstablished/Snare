@@ -11,6 +11,7 @@ using Snare.Capture.Selection;
 using Snare.Core.Captures;
 using Snare.Core.Geometry;
 using Snare.Core.Options;
+using Snare.Core.Search;
 using Snare.Rendering;
 
 namespace Snare.App.Capture;
@@ -21,6 +22,7 @@ namespace Snare.App.Capture;
 /// </summary>
 public sealed class CaptureService(
     IScreenFreezer freezer,
+    IOcrEngine ocr,
     CaptureOverlay overlay,
     ICaptureStore store,
     ClipboardService clipboard,
@@ -63,6 +65,49 @@ public sealed class CaptureService(
             }
 
             await SaveAsync(desktop, selection);
+        }
+        catch (Exception ex)
+        {
+            Fail(ex);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>Ctrl+Alt+PrtSc: select a region, read its text, put the text on the clipboard. Nothing is saved.</summary>
+    public async Task GrabTextAsync()
+    {
+        if (!TryEnter())
+        {
+            return;
+        }
+
+        try
+        {
+            var desktop = Freeze();
+            var selection = await overlay.SelectAsync(desktop);
+            if (selection is null)
+            {
+                return;
+            }
+
+            var image = await Task.Run(() => DesktopCropper.Crop(desktop, selection.Rect));
+            var text = (await ocr.RecognizeAsync(image)).Trim();
+            if (text.Length == 0)
+            {
+                tray.Notify("Grab text", "No text found in that area.");
+                return;
+            }
+
+            var lines = text.Split('\n');
+            var copied = await clipboard.CopyTextAsync(text);
+            var first = lines[0].Length > 60 ? lines[0][..60] + "…" : lines[0];
+            tray.Notify(
+                copied ? $"Copied {lines.Length} line{(lines.Length == 1 ? "" : "s")} of text" : "Clipboard busy; text not copied",
+                first);
+            logger.LogInformation("Grab text read {Lines} lines from {Rect}", lines.Length, selection.Rect);
         }
         catch (Exception ex)
         {

@@ -26,6 +26,15 @@ public sealed class ClipboardService(ILogger<ClipboardService> logger)
         return SetAsync(bitmap, png);
     }
 
+    /// <summary>Copies plain text (Grab Text). Call on the UI thread.</summary>
+    public async Task<bool> CopyTextAsync(string text)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(text);
+        var data = new DataObject();
+        data.SetText(text, TextDataFormat.UnicodeText);
+        return await SetDataAsync(data);
+    }
+
     /// <summary>Copies a saved PNG or JPG file. Call on the UI thread.</summary>
     public async Task<bool> CopyFileAsync(string path)
     {
@@ -46,6 +55,11 @@ public sealed class ClipboardService(ILogger<ClipboardService> logger)
             data.SetData("PNG", new MemoryStream(png), autoConvert: false);
         }
 
+        return await SetDataAsync(data);
+    }
+
+    private async Task<bool> SetDataAsync(DataObject data)
+    {
         for (var attempt = 1; attempt <= Attempts; attempt++)
         {
             try

@@ -43,6 +43,20 @@ internal static class SchemaMigrator
             PRIMARY KEY (CaptureId, TagId)
         );
         """,
+
+        // 2: Phase 3 full-text index, backfilled from existing captures.
+        """
+        CREATE VIRTUAL TABLE CaptureSearch USING fts5(
+            CaptureId UNINDEXED, Title, Description, Tags, OcrText, SourceApp, SourceWindowTitle,
+            tokenize = 'unicode61 remove_diacritics 2'
+        );
+        CREATE INDEX IX_CaptureTag_TagId ON CaptureTag (TagId);
+        INSERT INTO CaptureSearch (CaptureId, Title, Description, Tags, OcrText, SourceApp, SourceWindowTitle)
+        SELECT c.Id, c.Title, c.Description,
+               (SELECT group_concat(t.Name, ' ') FROM CaptureTag ct JOIN Tag t ON t.Id = ct.TagId WHERE ct.CaptureId = c.Id),
+               c.OcrText, c.SourceApp, c.SourceWindowTitle
+        FROM Capture c;
+        """,
     ];
 
     public static int CurrentVersion => Scripts.Length;

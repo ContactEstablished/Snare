@@ -13,7 +13,8 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
 {
     private const string AppName = "Snare";
 
-    private readonly MenuItem _spikesMenu = new() { Header = "Spikes" };
+    // Created in Show, not here: WPF elements need the UI thread, and this service is built by DI.
+    private MenuItem? _spikesMenu;
     private TaskbarIcon? _trayIcon;
 
     public void Show(TrayMenuActions actions)
@@ -33,8 +34,10 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
         }
 
         menu.Items.Add(delayed);
+        menu.Items.Add(Item("Grab text", actions.GrabText, "Ctrl+Alt+PrtSc"));
         menu.Items.Add(Item("Library", actions.OpenLibrary));
         menu.Items.Add(new Separator());
+        _spikesMenu = new MenuItem { Header = "Spikes" };
         menu.Items.Add(_spikesMenu);
         menu.Items.Add(new Separator());
 
@@ -64,7 +67,7 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
         ArgumentNullException.ThrowIfNull(run);
         var item = new MenuItem { Header = header };
         item.Click += (_, _) => run();
-        _spikesMenu.Items.Add(item);
+        _spikesMenu?.Items.Add(item);
     }
 
     /// <summary>Puts hotkey problems in the tooltip and shows them once as a notification.</summary>

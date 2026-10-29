@@ -42,7 +42,13 @@
                     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                     mc:Ignorable="d">
-            <TextBlock Text="{Binding Summary, Mode=OneTime}" Foreground="#BBFFFFFF" VerticalAlignment="Center" Margin="8,0,10,0" />
+            <TextBlock Text="{Binding Summary}" Foreground="#BBFFFFFF" VerticalAlignment="Center" Margin="8,0,10,0" />
+            <TextBox x:Name="TagBox" Width="150" VerticalAlignment="Center" Margin="0,0,6,0" Padding="4,2" Background="#FF2A2A2A" Foreground="White" CaretBrush="White" BorderBrush="#FF3A3A3A"
+                     Text="{Binding TagText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Add tags (comma-separated), Enter">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding AddTagsCommand}" />
+                </TextBox.InputBindings>
+            </TextBox>
             <Button Content="Edit" Command="{Binding EditCommand}" ToolTip="Open in the editor" />
             <Button Content="Copy" Command="{Binding CopyCommand}" ToolTip="Copy again" />
             <Button Content="Show in folder" Command="{Binding RevealCommand}" />

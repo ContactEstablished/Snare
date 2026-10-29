@@ -69,6 +69,12 @@ public class ImageCodecTests
         Assert.Equal(64, decoded.Width); // never upscaled
     }
 
+    [Fact]
+    public void Decode_RejectsBytesThatArentAnImage()
+    {
+        Assert.Throws<InvalidDataException>(() => ImageCodec.Decode("not really a png"u8.ToArray()));
+    }
+
     [Theory]
     [InlineData(5120, 1440, 320, 90)]
     [InlineData(5120, 2880, 320, 180)]

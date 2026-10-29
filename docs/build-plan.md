@@ -190,7 +190,7 @@ Every still capture freezes all monitors first, then Matt selects on the frozen 
 
 **Hotkeys (Decided)**
 
-- `PrtSc` takes an image, `Shift+PrtSc` starts video, `Ctrl+Shift+PrtSc` starts a scrolling capture, `Ctrl+PrtSc` repeats the last region.
+- `PrtSc` takes an image, `Shift+PrtSc` starts video, `Ctrl+Shift+PrtSc` starts a scrolling capture, `Ctrl+PrtSc` repeats the last region, `Ctrl+Alt+PrtSc` is Grab Text (chosen in Phase 3; Windows keeps `Alt+PrtSc`).
 - Snagit currently owns `PrtSc`. Matt turns off Snagit's hotkey, or quits Snagit, while using Snare.
 - If registering a hotkey fails, the tray tooltip and log say so, naming the likely owner (Snagit or Snipping Tool's Windows setting). Hotkeys become configurable in Phase 6.
 
@@ -377,7 +377,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 - [ ] A test proves redacted areas of the export contain no original pixels
 - [ ] Discard original works and ends re-editing
 
-**Phase 3: Organize and search**
+**Phase 3: Organize and search** (code-complete Oct 29, 2026; manual checks in [task.md](phases/3-search/task.md))
 
 - [ ] Tags and descriptions editable in the detail pane and quick bar
 - [ ] OCR runs in the background and its text is searchable

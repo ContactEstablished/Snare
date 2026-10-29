@@ -7,13 +7,14 @@ using Snare.Core.Annotations;
 using Snare.Core.Captures;
 using Snare.Core.Imaging;
 using Snare.Core.Options;
+using Snare.Core.Search;
 using Snare.Library.Data;
 using Snare.Rendering;
 
 namespace Snare.Library;
 
 /// <summary>The library on disk: library.db plus originals, exports and thumbnails.</summary>
-public sealed class SqliteCaptureStore : ICaptureStore
+public sealed partial class SqliteCaptureStore : ICaptureStore, ICaptureCatalog
 {
     private readonly LibraryPaths _paths;
     private readonly IOptionsMonitor<SnareOptions> _options;
@@ -103,6 +104,7 @@ public sealed class SqliteCaptureStore : ICaptureStore
         {
             db.Captures.Add(entity);
             await db.SaveChangesAsync(cancellationToken);
+            await ReindexAsync(db, id, cancellationToken);
         }
 
         // 3. The flattened export. A new capture has no annotations yet, but it goes through
@@ -130,6 +132,7 @@ public sealed class SqliteCaptureStore : ICaptureStore
         }
 
         _logger.LogInformation("Saved capture {Id} {Width}x{Height} to {Path}", id, image.Width, image.Height, exportPath);
+        ImageChanged?.Invoke(this, id);
         return entity.ToRecord();
     }
 
@@ -176,7 +179,9 @@ public sealed class SqliteCaptureStore : ICaptureStore
         await _save.WaitAsync(cancellationToken);
         try
         {
-            return await ReexportCoreAsync(id, document, discardOriginal: false, cancellationToken);
+            var updated = await ReexportCoreAsync(id, document, discardOriginal: false, cancellationToken);
+            ImageChanged?.Invoke(this, id);
+            return updated;
         }
         finally
         {
@@ -191,7 +196,9 @@ public sealed class SqliteCaptureStore : ICaptureStore
         await _save.WaitAsync(cancellationToken);
         try
         {
-            return await ReexportCoreAsync(id, document, discardOriginal: true, cancellationToken);
+            var updated = await ReexportCoreAsync(id, document, discardOriginal: true, cancellationToken);
+            ImageChanged?.Invoke(this, id);
+            return updated;
         }
         finally
         {
@@ -240,7 +247,10 @@ public sealed class SqliteCaptureStore : ICaptureStore
         row.AnnotationJson = discardOriginal ? null : AnnotationJson.Serialize(document);
         row.OriginalPath = discardOriginal ? null : row.OriginalPath;
         row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
-        await db.SaveChangesAsync(cancellationToken);
+
+        // The image changed (perhaps a password was just redacted): forget the old text until it is read again.
+        row.OcrText = null;
+        await SaveAndReindexAsync(db, [id], cancellationToken);
 
         _logger.LogInformation(
             discardOriginal ? "Discarded the original of capture {Id}; {Path} is now its only copy" : "Re-exported capture {Id} to {Path}",
@@ -284,6 +294,7 @@ public sealed class SqliteCaptureStore : ICaptureStore
     public async Task MoveToTrashAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
         await using var db = new SnareDbContext(_dbOptions);
         var row = await db.Captures.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
         if (row is null || row.IsDeleted)
