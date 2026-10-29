@@ -33,3 +33,12 @@ GetDisplayConfigBufferSizes
 QueryDisplayConfig
 DisplayConfigGetDeviceInfo
 DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO
+CUIAutomation
+IUIAutomation
+IUIAutomationElement
+IUIAutomationTreeWalker
+IUIAutomationScrollPattern
+UIA_PATTERN_ID
+UIA_ScrollPatternNoScroll
+SendInput
+SetCursorPos
