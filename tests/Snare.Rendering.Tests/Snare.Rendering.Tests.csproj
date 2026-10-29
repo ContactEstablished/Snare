@@ -8,4 +8,9 @@
     <ProjectReference Include="..\..\src\Snare.Rendering\Snare.Rendering.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Golden images are read from the output folder, so CI doesn't depend on source paths. -->
+    <None Include="Golden\*.png" Exclude="Golden\*.received.png" CopyToOutputDirectory="PreserveNewest" LinkBase="Golden" />
+  </ItemGroup>
+
 </Project>
