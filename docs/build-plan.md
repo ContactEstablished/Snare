@@ -79,7 +79,7 @@ The app is C# on .NET 10 with WPF, using Windows' own capture, OCR and media API
 | Tray icon | H.NotifyIcon.Wpf | WPF-native tray and context menu | Decided |
 | Logging | Serilog, rolling file | Diagnose capture bugs after the fact | Decided |
 | Tests | xUnit v3 | Unit, golden-image and fixture tests | Decided |
-| Packaging | Self-contained `dotnet publish` into `%LOCALAPPDATA%\Programs\Snare` via `tools/publish.ps1`; no installer, no auto-update | Single user, no distribution | Decided |
+| Packaging | Self-contained `dotnet publish`. `tools/build-installer.ps1` builds a per-user Inno Setup installer (`Snare-Setup-<version>.exe`, installs to `%LOCALAPPDATA%ProgramsSnare`); `tools/publish.ps1` still works for quick updates. No auto-update. FFmpeg is not bundled | Single user | Decided (installer added Oct 29, 2026) |
 
 Target framework: `net10.0-windows10.0.22621.0` for Windows-facing projects; Core and Rendering target plain `net10.0`. Package versions live in `Directory.Packages.props`.
 
