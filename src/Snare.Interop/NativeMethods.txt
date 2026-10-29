@@ -19,3 +19,13 @@ DeleteDC
 BITMAPINFO
 SetWindowPos
 GetCursorPos
+EnumWindows
+IsWindowVisible
+IsIconic
+GetWindowTextW
+GetWindowTextLengthW
+GetWindowThreadProcessId
+GetCursorInfo
+CURSORINFO
+GetIconInfo
+DrawIconEx

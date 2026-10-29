@@ -1,6 +1,7 @@
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Snare.Interop;
 
@@ -9,9 +10,10 @@ public static class ScreenGrabber
     /// <summary>
     /// Copies a rectangle of the screen, in physical virtual-desktop pixels, into a top-down
     /// 32-bit BGRA buffer (stride = width * 4). CAPTUREBLT includes layered windows such as
-    /// menus and tooltips, which is what the freeze-first capture exists for.
+    /// menus and tooltips, which is what the freeze-first capture exists for. GDI grabs never
+    /// include the mouse pointer; <paramref name="includeCursor"/> draws it in.
     /// </summary>
-    public static unsafe byte[] Grab(int x, int y, int width, int height)
+    public static unsafe byte[] Grab(int x, int y, int width, int height, bool includeCursor = false)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
@@ -39,6 +41,11 @@ public static class ScreenGrabber
             var previous = PInvoke.SelectObject(memoryDc, bitmap);
             var copied = PInvoke.BitBlt(memoryDc, 0, 0, width, height, screenDc, x, y,
                 ROP_CODE.SRCCOPY | ROP_CODE.CAPTUREBLT);
+            if (copied && includeCursor)
+            {
+                DrawCursor(memoryDc, x, y);
+            }
+
             PInvoke.SelectObject(memoryDc, previous);
             if (!copied)
             {
@@ -90,5 +97,38 @@ public static class ScreenGrabber
 
             PInvoke.ReleaseDC(HWND.Null, screenDc);
         }
+    }
+
+    /// <summary>Draws the current cursor at its hotspot-adjusted position, relative to the grab origin.</summary>
+    private static unsafe void DrawCursor(HDC target, int originX, int originY)
+    {
+        var info = new CURSORINFO { cbSize = (uint)sizeof(CURSORINFO) };
+        if (!PInvoke.GetCursorInfo(ref info) || (info.flags & CURSORINFO_FLAGS.CURSOR_SHOWING) == 0 || info.hCursor.IsNull)
+        {
+            return;
+        }
+
+        int hotspotX = 0, hotspotY = 0;
+        ICONINFO icon;
+        if (PInvoke.GetIconInfo(new HICON(info.hCursor.Value), &icon))
+        {
+            hotspotX = (int)icon.xHotspot;
+            hotspotY = (int)icon.yHotspot;
+            // GetIconInfo hands back copies of the cursor's bitmaps; free them.
+            if (!icon.hbmMask.IsNull)
+            {
+                PInvoke.DeleteObject(icon.hbmMask);
+            }
+
+            if (!icon.hbmColor.IsNull)
+            {
+                PInvoke.DeleteObject(icon.hbmColor);
+            }
+        }
+
+        PInvoke.DrawIconEx(target,
+            info.ptScreenPos.X - hotspotX - originX,
+            info.ptScreenPos.Y - hotspotY - originY,
+            new HICON(info.hCursor.Value), 0, 0, 0, HBRUSH.Null, DI_FLAGS.DI_NORMAL);
     }
 }
