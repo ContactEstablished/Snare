@@ -49,6 +49,11 @@ Settings and Start with Windows act on the real machine, so check them with the 
   - With the box ticked, `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` has a `Snare` value pointing at the published `Snare.exe`.
   - Sign out and back in: Snare is in the tray.
   - Untick it and Save: the value is gone.
+- [ ] **MSIX install** (`./tools/build-msix.ps1`, then `./tools/install-msix.ps1`):
+  - Snare is in the Start menu and starts in the tray. Your existing library is there.
+  - A test recording picks up the mic and webcam. Windows may ask for access the first time.
+  - With Start with Windows ticked, Task Manager > Startup apps lists Snare as Enabled. Sign out and back in: Snare is in the tray. Untick it and Save: it shows Disabled.
+  - Uninstall from Settings > Apps: `%LOCALAPPDATA%\Snare` is still there.
 - [ ] **Backup:**
   - Tray → Back up library shows a notification naming the zip in `Documents\Snare Backups`.
   - The zip holds `library.db` and `originals\`.
