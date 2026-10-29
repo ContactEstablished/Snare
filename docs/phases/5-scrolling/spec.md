@@ -13,7 +13,8 @@ Cut from [the build plan](../../build-plan.md): Scrolling capture, Image capture
    - **Start**: manual mode. Matt scrolls at his own pace.
    - **Auto-scroll**: automatic mode.
    - **Stop**: ends the capture and saves it.
-   - **Cancel** (or `Esc`): ends it without saving.
+   - **Cancel**: ends it without saving. Closing the panel any other way cancels too.
+   - The panel never takes focus, so the page being scrolled keeps it.
    - A live preview of the bottom of the image as it grows, the height so far ("4,210 px of 30,000"), and the latest warning ("Couldn't line up that frame; scroll a little slower").
 3. While it runs, a thin border is drawn around the area (outside it, so it never appears in the grabs).
 4. When it stops (Stop, the height cap, or automatic mode reaching the end), the image goes through the same path as a still capture: saved to the library, copied to the clipboard, then the quick bar or the editor (the `AfterCapture` setting).
@@ -23,8 +24,9 @@ Cut from [the build plan](../../build-plan.md): Scrolling capture, Image capture
 `ScrollStitcher` takes BGRA frames of a fixed size and builds the result.
 
 - Frames are compared in grayscale.
-- **Sticky rows:** rows that are identical at the same position in the previous and new frame, counted from the top and from the bottom, are the sticky header and footer. Each is capped at 40% of the frame. They are left out of matching. The header is kept once, from the first frame; the footer is kept once, from the last frame. A wrong guess (blank rows that only look sticky) costs nothing: those rows are still committed from a later frame.
-- **Offset:** a textured strip near the bottom of the previous frame's content band is found in the new frame's band with OpenCvSharp's normalized cross-correlation (`TM_CCOEFF_NORMED`). The offset is how far it moved up.
+- **Scrolling columns:** only the widest run of columns that changed between the two frames takes part in matching. A fixed sidebar, a table of contents or the window frame would otherwise pull every match toward "no movement". A change narrower than an eighth of the area (a spinner, a cursor) on its own counts as no movement.
+- **Sticky rows:** rows unchanged (at least 95% of their scrolling columns) at the same position in the previous and new frame, counted from the top and from the bottom, are the sticky header and footer. Each is capped at 40% of the frame. They are left out of matching. The header is kept once, from the first frame; the footer is kept once, from the last frame. A wrong guess (blank rows that only look sticky) costs nothing: those rows are still committed from a later frame.
+- **Offset:** a textured strip (by edge strength, so blank space and smooth gradients are skipped, and never one that sat still) near the bottom of the previous frame's content band is found in the new frame's band with OpenCvSharp's normalized cross-correlation (`TM_CCOEFF_NORMED`). The offset is how far it moved up.
 - **Checks:**
   - a match below 0.9 confidence is dropped;
   - so is a match whose whole overlap differs on average by more than a small tolerance (a repeating pattern or a half-painted frame);
@@ -46,16 +48,18 @@ Cut from [the build plan](../../build-plan.md): Scrolling capture, Image capture
   2. grab until two grabs in a row are identical (rendering has settled), up to 1.5 s;
   3. feed the stitcher.
 
-  It stops after two steps in a row that add nothing (the end of the page), or at the cap.
+  A step is half the view. A step that can't be lined up is scrolled back and retried at half the size, down to an eighth. After a step, it waits for the page to change before waiting for it to settle, so a slow repaint isn't mistaken for the end.
+
+  It stops after two steps in a row that don't move the page (the end of the page), four misses in a row, or at the cap. When it ends by itself, a notification says why. The preview is shrunk to the panel's width and updated about four times a second.
 - Progress (height, last outcome, warning, the tail of the image) is reported through `IProgress<ScrollProgress>`.
 
 ## Automatic scrolling (`Snare.Interop`)
 
 `ScrollTarget.FromPoint(point)` uses UI Automation (the COM `IUIAutomation` through CsWin32):
 - it takes the element under the area's center and walks up to the first ancestor whose scroll pattern is vertically scrollable;
-- a step is `SetScrollPercent` by half the visible fraction (half a viewport).
+- a step is `SetScrollPercent` by the requested share of the visible fraction; it then polls for up to 300 ms for the new position, since browsers report it a little later.
 
-If there is no scroll pattern, or the pattern doesn't move the page, it falls back to mouse-wheel input (`SendInput`), with the cursor over the area's center: enough notches for about 40% of the area's height. The fallback is used when two pattern steps in a row don't move the page.
+If there is no scroll pattern, or the pattern doesn't move the page, it falls back to mouse-wheel input (`SendInput`), with the cursor over the area's center: enough notches (100 DIPs each, so the monitor's scaling counts) for the requested share of the area. The fallback takes over for good the first time a pattern step doesn't move the page, within that same step.
 
 ## Library
 

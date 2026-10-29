@@ -12,7 +12,7 @@ namespace Snare.App.Scrolling;
 
 /// <summary>
 /// View wiring for the scroll panel: kept out of captures, placed beside the area on its monitor,
-/// draggable, Esc cancels, and the preview bitmap drawn from the view model's pixels.
+/// draggable, never takes focus, and the preview bitmap drawn from the view model's pixels.
 /// </summary>
 internal sealed partial class ScrollPanelWindow : Window
 {
@@ -25,7 +25,12 @@ internal sealed partial class ScrollPanelWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
 
-        SourceInitialized += (_, _) => CaptureExclusion.ExcludeFromCapture(new WindowInteropHelper(this).Handle);
+        SourceInitialized += (_, _) =>
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            CaptureExclusion.ExcludeFromCapture(handle);
+            WindowPlacement.MakeNoActivate(handle); // clicking Start leaves the focus in the page being scrolled
+        };
         Loaded += (_, _) => Place(area, monitor);
         viewModel.PropertyChanged += OnViewModelChanged;
         Closed += (_, _) => viewModel.PropertyChanged -= OnViewModelChanged;
@@ -36,16 +41,6 @@ internal sealed partial class ScrollPanelWindow : Window
                 DragMove();
             }
         };
-    }
-
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-        if (e.Key == Key.Escape && _viewModel.CancelCommand.CanExecute(null))
-        {
-            _viewModel.CancelCommand.Execute(null);
-            e.Handled = true;
-        }
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)

@@ -392,7 +392,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 - [ ] Recordings land in the library with a thumbnail and play back
 - [ ] Trim, GIF export and click highlighting work
 
-**Phase 5: Scrolling capture**
+**Phase 5: Scrolling capture** (code-complete Oct 29, 2026; manual checks in [task.md](phases/5-scrolling/task.md))
 
 - [ ] Manual mode stitches a long web page with a sticky header correctly
 - [x] Stitcher fixture tests pass (synthetic pages and a sequence recorded in headless Edge)

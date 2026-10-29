@@ -42,3 +42,6 @@ UIA_PATTERN_ID
 UIA_ScrollPatternNoScroll
 SendInput
 SetCursorPos
+GetWindowLongPtr
+SetWindowLongPtr
+WINDOW_EX_STYLE

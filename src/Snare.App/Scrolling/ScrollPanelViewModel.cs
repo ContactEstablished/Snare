@@ -36,7 +36,7 @@ public sealed partial class ScrollPanelViewModel(
         ScrollPanelState.Ready => "Start, then scroll down at your own pace. Auto-scroll scrolls the page for you (Chrome, Edge).",
         ScrollPanelState.Manual => "Scroll down steadily. Stop (or Ctrl+Shift+PrtSc) at the end.",
         ScrollPanelState.Automatic => "Scrolling to the end of the page. Stop to end sooner.",
-        _ => "Stitching…",
+        _ => "Saving…",
     };
 
     public void SetState(ScrollPanelState state) => State = state;

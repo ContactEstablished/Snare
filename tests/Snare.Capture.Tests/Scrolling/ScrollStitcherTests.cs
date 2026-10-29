@@ -80,6 +80,155 @@ public class ScrollStitcherTests
     }
 
     [Fact]
+    public void IgnoresStaticSideColumns_LikeADocsTableOfContents()
+    {
+        // 600 wide: a fixed 150 px table of contents on the left and a 100 px column on the
+        // right, beside content that scrolls. Both columns have text, so they're worth matching.
+        var page = new SyntheticPage(width: 600, seed: 21);
+        var stitcher = new ScrollStitcher();
+        int[] positions = [0, 120, 240, 390, 520, 660];
+
+        var outcomes = positions.Select(y => stitcher.Add(Decorate(page.Frame(y), page, left: 150, right: 100))).ToList();
+
+        Assert.All(outcomes.Skip(1), r => Assert.Equal(StitchOutcome.Appended, r.Outcome));
+        Assert.Equal([120, 120, 150, 130, 140], outcomes.Skip(1).Select(r => r.Offset));
+        AssertSameColumns(page.Expected(660), stitcher.Compose(), 150, 500);
+    }
+
+    [Fact]
+    public void ToleratesAMovingScrollbarThumbBesideANarrowArea()
+    {
+        var page = new SyntheticPage(width: 400, seed: 5);
+        var stitcher = new ScrollStitcher();
+        int[] positions = [0, 100, 200, 300, 420, 540];
+
+        foreach (var y in positions)
+        {
+            var result = stitcher.Add(Thumb(page.Frame(y), page, y));
+            Assert.NotEqual(StitchOutcome.NoMatch, result.Outcome);
+            Assert.NotEqual(StitchOutcome.NoMovement, result.Outcome);
+        }
+
+        AssertSameColumns(page.Expected(540), stitcher.Compose(), 0, 388);
+    }
+
+    [Fact]
+    public void ABlinkingElementInAStaticFooterDoesntStopTheMatch()
+    {
+        var page = new SyntheticPage(seed: 9);
+        var stitcher = new ScrollStitcher();
+        int[] positions = [0, 90, 180, 270, 360, 450];
+
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var frame = Blink(page.Frame(positions[i]), page, on: i % 2 == 0);
+            Assert.Equal(i == 0 ? StitchOutcome.Started : StitchOutcome.Appended, stitcher.Add(frame).Outcome);
+        }
+
+        // Everything above the footer matches the page; the footer is the last frame's.
+        var image = stitcher.Compose();
+        var expected = page.Expected(450);
+        AssertSame(Crop(expected, 0, expected.Height - page.Footer), Crop(image, 0, image.Height - page.Footer));
+    }
+
+    [Fact]
+    public void ABlinkingElementAloneIsNoMovement()
+    {
+        var page = new SyntheticPage(seed: 9);
+        var stitcher = new ScrollStitcher();
+        stitcher.Add(Blink(page.Frame(100), page, on: true));
+
+        Assert.Equal(StitchOutcome.NoMovement, stitcher.Add(Blink(page.Frame(100), page, on: false)).Outcome);
+    }
+
+    /// <summary>Static text columns over the frame's left and right edges, below the header and above the footer.</summary>
+    private static PixelBuffer Decorate(PixelBuffer frame, SyntheticPage page, int left, int right)
+    {
+        var random = new Random(99); // same pattern in every frame
+        for (var y = page.Header; y < frame.Height - page.Footer; y++)
+        {
+            for (var x = 0; x < frame.Width; x++)
+            {
+                if (x < left || x >= frame.Width - right)
+                {
+                    Set(frame, x, y, 0xFFF4F4F4);
+                }
+            }
+        }
+
+        for (var y = page.Header + 8; y < frame.Height - page.Footer - 12; y += 18)
+        {
+            foreach (var (from, to) in new[] { (10, left - 10), (frame.Width - right + 8, frame.Width - 8) })
+            {
+                var w = random.Next(30, to - from);
+                for (var row = y; row < y + 9; row++)
+                {
+                    for (var x = from; x < from + w; x++)
+                    {
+                        Set(frame, x, row, 0xFF404040);
+                    }
+                }
+            }
+        }
+
+        return frame;
+    }
+
+    /// <summary>A 12 px scrollbar on the right whose 40 px thumb moves with the scroll position, over the header too.</summary>
+    private static PixelBuffer Thumb(PixelBuffer frame, SyntheticPage page, int y)
+    {
+        var thumbTop = y * (frame.Height - 40) / 2700;
+        for (var row = 0; row < frame.Height; row++)
+        {
+            for (var x = frame.Width - 12; x < frame.Width; x++)
+            {
+                Set(frame, x, row, row >= thumbTop && row < thumbTop + 40 ? 0xFF8A8A8A : 0xFFF0F0F0);
+            }
+        }
+
+        return frame;
+    }
+
+    /// <summary>A 16x16 status light in the footer, on or off.</summary>
+    private static PixelBuffer Blink(PixelBuffer frame, SyntheticPage page, bool on)
+    {
+        var top = frame.Height - page.Footer + ((page.Footer - 16) / 2);
+        for (var row = top; row < top + 16; row++)
+        {
+            for (var x = 200; x < 216; x++)
+            {
+                Set(frame, x, row, on ? 0xFF43A047 : 0xFF333333);
+            }
+        }
+
+        return frame;
+    }
+
+    private static void Set(PixelBuffer image, int x, int y, uint argb)
+    {
+        var i = (y * image.Stride) + (x * 4);
+        image.Pixels[i] = (byte)argb;
+        image.Pixels[i + 1] = (byte)(argb >> 8);
+        image.Pixels[i + 2] = (byte)(argb >> 16);
+        image.Pixels[i + 3] = (byte)(argb >> 24);
+    }
+
+    private static void AssertSameColumns(PixelBuffer expected, PixelBuffer actual, int left, int right)
+    {
+        Assert.Equal((expected.Width, expected.Height), (actual.Width, actual.Height));
+        for (var y = 0; y < expected.Height; y++)
+        {
+            for (var x = left; x < right; x++)
+            {
+                if (expected.GetArgb(x, y) != actual.GetArgb(x, y))
+                {
+                    Assert.Fail($"First difference at row {y}, column {x}.");
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void ToleratesGrabNoise()
     {
         var page = new SyntheticPage(seed: 11);

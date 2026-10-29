@@ -56,7 +56,7 @@
                 <Button Content="▶ Start" Command="{Binding StartManualCommand}" Background="#FF1E88E5" ToolTip="Grab while you scroll" />
                 <Button Content="Auto-scroll" Command="{Binding StartAutomaticCommand}" ToolTip="Snare scrolls the page to the end" />
                 <Button Content="■ Stop" Command="{Binding StopCommand}" Background="#FFC62828" ToolTip="Stop and save (Ctrl+Shift+PrtSc)" />
-                <Button Content="Cancel" Command="{Binding CancelCommand}" ToolTip="Stop without saving (Esc)" />
+                <Button Content="Cancel" Command="{Binding CancelCommand}" ToolTip="Stop without saving" />
             </WrapPanel>
             <Border Background="#FF0F0F0F" CornerRadius="4" Margin="0,2,0,0" MinHeight="40" MaxHeight="360">
                 <Image x:Name="PreviewImage" Stretch="Uniform" VerticalAlignment="Bottom" RenderOptions.BitmapScalingMode="HighQuality" />

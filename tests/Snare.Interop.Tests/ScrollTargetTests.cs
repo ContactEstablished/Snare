@@ -18,7 +18,7 @@ public class ScrollTargetTests
 
         for (var i = 0; i < 3; i++)
         {
-            target.ScrollDown();
+            target.Scroll(0.5);
             await Task.Delay(700, TestContext.Current.CancellationToken);
         }
 

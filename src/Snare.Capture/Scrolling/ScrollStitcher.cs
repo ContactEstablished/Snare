@@ -23,8 +23,14 @@ public sealed class ScrollStitcher
     /// <summary>Largest share of the frame a sticky header or footer can take.</summary>
     private const double MaxStickyShare = 0.4;
 
-    /// <summary>A row is "identical" when its mean gray difference is at most this.</summary>
-    private const double RowTolerance = 1.0;
+    /// <summary>A pixel counts as changed when its gray value moves by more than this (grab noise is 1).</summary>
+    private const int PixelTolerance = 2;
+
+    /// <summary>A row is unchanged when at most this share of its scrolling columns changed.</summary>
+    private const double StickyRowChangeShare = 0.05;
+
+    /// <summary>Unchanged columns narrower than this inside the scrolling content are bridged.</summary>
+    private const int MaxColumnGap = 8;
 
     /// <summary>The largest mean gray difference allowed over the whole overlap of a match.</summary>
     private const double OverlapTolerance = 6.0;
@@ -165,35 +171,41 @@ public sealed class ScrollStitcher
     {
         StitchResult Drop(StitchOutcome outcome, string? warning = null, double confidence = 0) => new(outcome, 0, confidence, warning);
 
-        var (header, footer, allSame) = StickyRows(previous, current, width, height);
+        // Only the columns that changed take part: a fixed sidebar, a table of contents or the
+        // window's frame stays put and would otherwise pull every match toward "no movement".
+        if (ChangedColumns(previous, current, width, height) is not { } columns)
+        {
+            return (Drop(StitchOutcome.NoMovement), 0);
+        }
+
+        var (header, footer, allSame) = StickyRows(previous, current, width, height, columns);
         if (allSame)
         {
             return (Drop(StitchOutcome.NoMovement), 0);
         }
 
-        var bandTop = header;
-        var bandBottom = height - footer;
-        if (bandBottom - bandTop < MinBand)
+        var band = new Band(width, header, height - footer, columns.Left, columns.Right);
+        if (band.Height < MinBand)
         {
             return (Drop(StitchOutcome.NoMatch, "Too little of the area scrolls to line up frames."), 0);
         }
 
         // Small, so a blank stretch at the bottom of the view costs little range; the overlap check
         // below catches the odd false match a small strip allows.
-        var strip = Math.Clamp((bandBottom - bandTop) / 8, 16, 48);
-        var templateTop = TexturedStrip(previous, width, bandTop, bandBottom, strip, fromBottom: true);
+        var strip = Math.Clamp(band.Height / 8, 16, 48);
+        var templateTop = TexturedStrip(previous, current, band, strip, fromBottom: true);
         if (templateTop is not { } top)
         {
             return (Drop(StitchOutcome.NoMatch, "Nothing to line up in this part of the page; keep scrolling."), 0);
         }
 
-        var (foundTop, confidence) = FindStrip(previous, current, width, top, strip, bandTop, bandBottom);
+        var (foundTop, confidence) = FindStrip(previous, current, band, top, strip);
         var offset = top - foundTop;
         if (confidence < MinConfidence
-            && TexturedStrip(previous, width, bandTop, bandBottom, strip, fromBottom: false) is { } upper)
+            && TexturedStrip(previous, current, band, strip, fromBottom: false) is { } upper)
         {
             // The bottom strip leaves the view when the page scrolls up; one from the top doesn't.
-            var (upperFound, upperConfidence) = FindStrip(previous, current, width, upper, strip, bandTop, bandBottom);
+            var (upperFound, upperConfidence) = FindStrip(previous, current, band, upper, strip);
             if (upperConfidence >= MinConfidence)
             {
                 (offset, confidence) = (upper - upperFound, upperConfidence);
@@ -210,7 +222,7 @@ public sealed class ScrollStitcher
         var best = offset;
         for (var candidate = offset - 2; candidate <= offset + 2; candidate++)
         {
-            var d = OverlapDifference(previous, current, width, bandTop, bandBottom, candidate);
+            var d = OverlapDifference(previous, current, band, candidate);
             if (d < difference)
             {
                 (difference, best) = (d, candidate);
@@ -235,12 +247,63 @@ public sealed class ScrollStitcher
         return (new StitchResult(StitchOutcome.Appended, best, confidence), footer);
     }
 
-    /// <summary>Rows identical at the same position, from the top and from the bottom, each capped at 40%.</summary>
-    private static (int Header, int Footer, bool AllSame) StickyRows(byte[] a, byte[] b, int width, int height)
+    /// <summary>
+    /// The widest run of columns that changed between the frames (short gaps bridged), or null
+    /// when too little changed to be scrolling: nothing at all, or only a spinner or cursor.
+    /// </summary>
+    private static (int Left, int Right)? ChangedColumns(byte[] a, byte[] b, int width, int height)
+    {
+        var changedRows = new int[width];
+        for (var y = 0; y < height; y++)
+        {
+            var row = y * width;
+            for (var x = 0; x < width; x++)
+            {
+                if (Math.Abs(a[row + x] - b[row + x]) > PixelTolerance)
+                {
+                    changedRows[x]++;
+                }
+            }
+        }
+
+        int bestLeft = 0, bestRight = 0, runLeft = -1, lastChanged = -1;
+        for (var x = 0; x <= width; x++)
+        {
+            var changed = x < width && changedRows[x] >= 2;
+            if (changed)
+            {
+                if (runLeft < 0 || x - lastChanged > MaxColumnGap)
+                {
+                    runLeft = x;
+                }
+
+                lastChanged = x;
+            }
+
+            if (runLeft >= 0 && (x == width || x - lastChanged > MaxColumnGap))
+            {
+                if (lastChanged + 1 - runLeft > bestRight - bestLeft)
+                {
+                    (bestLeft, bestRight) = (runLeft, lastChanged + 1);
+                }
+
+                runLeft = -1;
+            }
+        }
+
+        return bestRight - bestLeft >= Math.Max(MinBand, width / 8) ? (bestLeft, bestRight) : null;
+    }
+
+    /// <summary>
+    /// Rows unchanged at the same position (within the changed columns), from the top and from the
+    /// bottom, each capped at 40%. "Unchanged" allows a few pixels, so a scrollbar thumb or a
+    /// spinner beside a sticky header doesn't hide it.
+    /// </summary>
+    private static (int Header, int Footer, bool AllSame) StickyRows(byte[] a, byte[] b, int width, int height, (int Left, int Right) columns)
     {
         var limit = (int)(height * MaxStickyShare);
         var header = 0;
-        while (header < height && RowsMatch(a, b, width, header))
+        while (header < height && RowUnchanged(a, b, width, header, columns))
         {
             header++;
         }
@@ -251,7 +314,7 @@ public sealed class ScrollStitcher
         }
 
         var footer = 0;
-        while (footer < height && RowsMatch(a, b, width, height - 1 - footer))
+        while (footer < height && RowUnchanged(a, b, width, height - 1 - footer, columns))
         {
             footer++;
         }
@@ -259,25 +322,31 @@ public sealed class ScrollStitcher
         return (Math.Min(header, limit), Math.Min(footer, limit), false);
     }
 
-    private static bool RowsMatch(byte[] a, byte[] b, int width, int row)
+    private static bool RowUnchanged(byte[] a, byte[] b, int width, int row, (int Left, int Right) columns)
     {
         var start = row * width;
-        long sum = 0;
-        for (var i = start; i < start + width; i++)
+        var changed = 0;
+        for (var i = start + columns.Left; i < start + columns.Right; i++)
         {
-            sum += Math.Abs(a[i] - b[i]);
+            if (Math.Abs(a[i] - b[i]) > PixelTolerance)
+            {
+                changed++;
+            }
         }
 
-        return sum <= RowTolerance * width;
+        return changed <= StickyRowChangeShare * (columns.Right - columns.Left);
     }
 
-    /// <summary>The lowest (or highest) strip in the band with enough texture to match, stepping by half a strip.</summary>
-    private static int? TexturedStrip(byte[] gray, int width, int bandTop, int bandBottom, int strip, bool fromBottom)
+    /// <summary>
+    /// The lowest (or highest) strip in the band worth matching, stepping by half a strip: enough
+    /// texture, and not sitting still (a static strip would match itself at offset 0).
+    /// </summary>
+    private static int? TexturedStrip(byte[] previous, byte[] current, Band band, int strip, bool fromBottom)
     {
         var step = Math.Max(1, strip / 2);
-        for (var top = fromBottom ? bandBottom - strip : bandTop; top >= bandTop && top <= bandBottom - strip; top += fromBottom ? -step : step)
+        for (var top = fromBottom ? band.Bottom - strip : band.Top; top >= band.Top && top <= band.Bottom - strip; top += fromBottom ? -step : step)
         {
-            if (EdgeStrength(gray, width, top, strip) >= MinEdgeStrength)
+            if (EdgeStrength(previous, band, top, strip) >= MinEdgeStrength && !StripUnchanged(previous, current, band, top, strip))
             {
                 return top;
             }
@@ -286,62 +355,87 @@ public sealed class ScrollStitcher
         return null;
     }
 
+    private static bool StripUnchanged(byte[] previous, byte[] current, Band band, int top, int rows)
+    {
+        var unchanged = 0;
+        for (var y = top; y < top + rows; y++)
+        {
+            if (RowUnchanged(previous, current, band.Width, y, (band.Left, band.Right)))
+            {
+                unchanged++;
+            }
+        }
+
+        return unchanged * 2 > rows;
+    }
+
     /// <summary>
     /// Mean difference between neighboring pixels (right and below). Text and borders score high;
     /// blank space and smooth gradients, which match anywhere, score near zero.
     /// </summary>
-    private static double EdgeStrength(byte[] gray, int width, int top, int rows)
+    private static double EdgeStrength(byte[] gray, Band band, int top, int rows)
     {
+        var width = band.Width;
         long sum = 0;
         for (var y = top; y < top + rows - 1; y++)
         {
             var row = y * width;
-            for (var x = 0; x < width - 1; x++)
+            for (var x = band.Left; x < band.Right - 1; x++)
             {
                 int v = gray[row + x];
                 sum += Math.Abs(v - gray[row + x + 1]) + Math.Abs(v - gray[row + width + x]);
             }
         }
 
-        return (double)sum / ((rows - 1) * (width - 1));
+        return (double)sum / ((rows - 1) * (band.Right - band.Left - 1));
     }
 
     /// <summary>Where the strip at <paramref name="top"/> of <paramref name="previous"/> best matches inside the band of <paramref name="current"/>.</summary>
-    private static (int Top, double Confidence) FindStrip(
-        byte[] previous, byte[] current, int width, int top, int strip, int bandTop, int bandBottom)
+    private static (int Top, double Confidence) FindStrip(byte[] previous, byte[] current, Band band, int top, int strip)
     {
+        var width = band.Width;
+        var columns = band.Right - band.Left;
         using var previousMat = Mat.FromPixelData(previous.Length / width, width, MatType.CV_8UC1, previous);
         using var currentMat = Mat.FromPixelData(current.Length / width, width, MatType.CV_8UC1, current);
-        using var template = new Mat(previousMat, new Rect(0, top, width, strip));
-        using var band = new Mat(currentMat, new Rect(0, bandTop, width, bandBottom - bandTop));
+        using var template = new Mat(previousMat, new Rect(band.Left, top, columns, strip));
+        using var search = new Mat(currentMat, new Rect(band.Left, band.Top, columns, band.Height));
         using var scores = new Mat();
-        Cv2.MatchTemplate(band, template, scores, TemplateMatchModes.CCoeffNormed);
+        Cv2.MatchTemplate(search, template, scores, TemplateMatchModes.CCoeffNormed);
         Cv2.MinMaxLoc(scores, out _, out var best, out _, out var location);
-        return (bandTop + location.Y, double.IsFinite(best) ? best : 0);
+        return (band.Top + location.Y, double.IsFinite(best) ? best : 0);
     }
 
     /// <summary>
     /// Mean gray difference between the previous band moved up by <paramref name="offset"/> (down
-    /// when negative) and the new band, over the rows they share.
+    /// when negative) and the new band, over the rows and changed columns they share.
     /// </summary>
-    private static double OverlapDifference(byte[] previous, byte[] current, int width, int bandTop, int bandBottom, int offset)
+    private static double OverlapDifference(byte[] previous, byte[] current, Band band, int offset)
     {
-        var rows = bandBottom - bandTop - Math.Abs(offset);
+        var rows = band.Height - Math.Abs(offset);
         if (rows < MinBand / 2)
         {
             return double.MaxValue;
         }
 
+        var width = band.Width;
         long sum = 0;
-        var fromPrevious = (bandTop + Math.Max(offset, 0)) * width;
-        var fromCurrent = (bandTop + Math.Max(-offset, 0)) * width;
-        var count = rows * width;
-        for (var i = 0; i < count; i++)
+        for (var y = 0; y < rows; y++)
         {
-            sum += Math.Abs(previous[fromPrevious + i] - current[fromCurrent + i]);
+            var fromPrevious = ((band.Top + Math.Max(offset, 0) + y) * width) + band.Left;
+            var fromCurrent = ((band.Top + Math.Max(-offset, 0) + y) * width) + band.Left;
+            for (var x = 0; x < band.Right - band.Left; x++)
+            {
+                sum += Math.Abs(previous[fromPrevious + x] - current[fromCurrent + x]);
+            }
         }
 
-        return (double)sum / count;
+        return (double)sum / ((long)rows * (band.Right - band.Left));
+    }
+
+    /// <summary>The rows between the sticky header and footer, and the columns that scroll.</summary>
+    private readonly record struct Band(int Width, int Top, int Bottom, int Left, int Right)
+    {
+        public int Height => Bottom - Top;
     }
 
     /// <summary>BGRA to 8-bit luma (BT.601 weights in fixed point).</summary>

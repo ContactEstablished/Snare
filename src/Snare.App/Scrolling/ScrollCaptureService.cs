@@ -79,6 +79,8 @@ public sealed class ScrollCaptureService(
     /// <summary>One scrolling capture, from the panel appearing to the image being delivered.</summary>
     private sealed class Run
     {
+        private const double PreviewDips = 480; // twice the panel's preview width, for sharpness
+
         private readonly ScrollCaptureService _owner;
         private readonly PixelRect _area;
         private readonly MonitorInfo _monitor;
@@ -90,6 +92,7 @@ public sealed class ScrollCaptureService(
         private Task? _loop;
         private DateTimeOffset _startedAt;
         private bool _finishing;
+        private bool _closing;
 
         public Run(ScrollCaptureService owner, PixelRect area, MonitorInfo monitor, CaptureSource source)
         {
@@ -104,6 +107,16 @@ public sealed class ScrollCaptureService(
                 () => FinishAsync(save: false));
             _border = new ScrollAreaBorder(area, monitor);
             _window = new ScrollPanelWindow(Panel, area, monitor);
+
+            // Closing the panel some other way (Alt+F4) cancels the capture rather than leaving it running.
+            _window.Closing += (_, e) =>
+            {
+                if (!_closing)
+                {
+                    e.Cancel = true;
+                    _ = FinishAsync(save: false);
+                }
+            };
         }
 
         public ScrollPanelViewModel Panel { get; }
@@ -123,7 +136,11 @@ public sealed class ScrollCaptureService(
 
             Panel.SetState(automatic ? ScrollPanelState.Automatic : ScrollPanelState.Manual);
             _startedAt = _owner._time.GetLocalNow();
-            var session = new ScrollCaptureSession(ScreenArea.Grabber(_area), _owner._time, tailRows: Math.Max(300, _area.Width * 3 / 2));
+            var session = new ScrollCaptureSession(
+                ScreenArea.Grabber(_area),
+                _owner._time,
+                tailRows: Math.Max(300, _area.Width * 3 / 2),
+                previewWidth: (int)Math.Ceiling(PreviewDips * _monitor.Scale));
             _session = session;
             var progress = new Progress<ScrollProgress>(Panel.Apply); // created here, so it reports on the UI thread
             var token = _stop.Token;
@@ -131,7 +148,7 @@ public sealed class ScrollCaptureService(
             {
                 if (automatic)
                 {
-                    var driver = ScreenScrollDriver.For(_area);
+                    var driver = ScreenScrollDriver.For(_area, _monitor.Scale);
                     _owner._logger.LogInformation("Auto-scrolling {Area} with the {Method}", _area, driver.Method);
                     await session.RunAutomaticAsync(driver, progress, token);
                 }
@@ -144,7 +161,7 @@ public sealed class ScrollCaptureService(
             return Task.CompletedTask;
         }
 
-        /// <summary>Automatic mode reaching the end, or either mode reaching the height cap, saves by itself.</summary>
+        /// <summary>Automatic mode reaching the end, or either mode reaching the height cap, saves by itself and says why.</summary>
         private async Task FinishWhenDoneAsync(Task loop)
         {
             try
@@ -158,12 +175,16 @@ public sealed class ScrollCaptureService(
 
             if (!_finishing)
             {
-                await FinishAsync(save: true);
+                await FinishAsync(save: true, endedByItself: true);
             }
         }
 
-        /// <summary>Stops grabbing, closes the panel and frame, then saves the image (or drops it).</summary>
-        public async Task FinishAsync(bool save)
+        /// <summary>
+        /// Stops grabbing, then saves the image (or drops it). The panel stays up saying "Saving…"
+        /// until the image is delivered, so a long save isn't silent and the hotkey can't start
+        /// another capture meanwhile.
+        /// </summary>
+        public async Task FinishAsync(bool save, bool endedByItself = false)
         {
             if (_finishing)
             {
@@ -187,20 +208,25 @@ public sealed class ScrollCaptureService(
                 }
             }
 
-            _window.Close();
-            _border.Close();
-            _owner._run = null;
             _stop.Dispose();
-
+            _border.Close(); // the frame is gone before the quick bar appears
             try
             {
-                if (save && _session is { HasImage: true } session)
+                var session = _session;
+                _session = null;
+                if (save && session is { HasImage: true })
                 {
+                    var reason = endedByItself ? session.EndReason : null;
                     var image = await Task.Run(session.Compose);
-                    _owner._logger.LogInformation("Scrolling capture of {Area}: {Width}x{Height}", _area, image.Width, image.Height);
+                    session = null; // let the stitched rows go before the save makes its copies
+                    _owner._logger.LogInformation("Scrolling capture of {Area}: {Width}x{Height} ({Reason})", _area, image.Width, image.Height, reason ?? "stopped");
                     if (failure is not null)
                     {
                         _owner._tray.Notify("Scrolling capture stopped early", $"Saved what was captured. {failure.Message}");
+                    }
+                    else if (reason is not null)
+                    {
+                        _owner._tray.Notify("Scrolling capture saved", reason);
                     }
 
                     await _owner._capture.DeliverAsync(image, _source, _startedAt, CaptureKind.Scrolling, _area, _monitor);
@@ -214,6 +240,12 @@ public sealed class ScrollCaptureService(
             {
                 _owner._logger.LogError(ex, "Scrolling capture of {Area} could not be saved", _area);
                 _owner._tray.Notify("Scrolling capture failed", ex.Message);
+            }
+            finally
+            {
+                _closing = true;
+                _window.Close();
+                _owner._run = null;
             }
         }
     }
