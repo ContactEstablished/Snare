@@ -42,11 +42,13 @@ public partial class App : Application
             .AddSnareRecording()
             .AddSnareLibrary();
         builder.Services.AddSingleton<TrayIconService>();
+        builder.Services.AddSingleton<HotkeyService>();
+        builder.Services.AddSingleton<ShellService>();
 
         _host = builder.Build();
         _host.Start();
 
-        _host.Services.GetRequiredService<TrayIconService>().Show();
+        _host.Services.GetRequiredService<ShellService>().Start();
         Log.Information("Snare started");
     }
 
