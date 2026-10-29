@@ -1,10 +1,13 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Snare.App.Capture;
 using Snare.App.Library;
 using Snare.App.Recording;
 using Snare.App.Scrolling;
+using Snare.App.Settings;
 using Snare.App.Spikes;
 using Snare.Core.Hotkeys;
+using Snare.Core.Options;
 using Snare.Interop;
 
 namespace Snare.App.Services;
@@ -17,6 +20,8 @@ public sealed class ShellService(
     RecordingService recording,
     ScrollCaptureService scrolling,
     LibraryWindowService library,
+    SettingsService settings,
+    IOptionsMonitor<SnareOptions> options,
     FreezeOverlaySpike freezeOverlay,
     SkiaCanvasSpike skiaCanvas,
     RecordingSpikeRunner recordingSpike,
@@ -30,7 +35,12 @@ public sealed class ShellService(
             GrabText: () => _ = capture.GrabTextAsync(),
             RecordVideo: () => _ = recording.ToggleAsync(),
             ScrollingCapture: () => _ = scrolling.ToggleAsync(),
-            OpenLibrary: library.Show));
+            OpenLibrary: library.Show,
+            OpenSettings: settings.Show,
+            BackUp: () => _ = settings.BackUpAsync()));
+        tray.UpdateHotkeyLabels(options.CurrentValue.Hotkeys);
+        options.OnChange((value, _) => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => tray.UpdateHotkeyLabels(value.Hotkeys)));
+        settings.ApplyStartWithWindows(options.CurrentValue.StartWithWindows);
 
         // Phase 0 harnesses stay until their manual checks in docs/phases/0-foundation/task.md are ticked.
         tray.AddSpike("Freeze overlay", freezeOverlay.Run);
@@ -41,8 +51,8 @@ public sealed class ShellService(
         WarnIfHdr();
 
         hotkeys.Pressed += OnHotkeyPressed;
+        hotkeys.ConflictsChanged += (_, _) => tray.ShowHotkeyConflicts(hotkeys.Conflicts);
         hotkeys.Start();
-        tray.ShowHotkeyConflicts(hotkeys.Conflicts);
     }
 
     // HDR makes GDI grabs look washed out (build plan: Monitors and DPI). Decided: warn, don't block.

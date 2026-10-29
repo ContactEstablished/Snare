@@ -1,5 +1,7 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -9,6 +11,7 @@ using Snare.App.Infrastructure;
 using Snare.App.Library;
 using Snare.App.Recording;
 using Snare.App.Scrolling;
+using Snare.App.Settings;
 using Snare.App.Video;
 using Snare.App.Services;
 using Snare.App.Spikes;
@@ -41,6 +44,10 @@ public partial class App : Application
             ContentRootPath = AppContext.BaseDirectory,
         });
 
+        // Matt's saved settings sit over appsettings.json and reload when Settings saves them.
+        Directory.CreateDirectory(Path.GetDirectoryName(UserSettingsStore.DefaultPath)!);
+        builder.Configuration.AddJsonFile(UserSettingsStore.DefaultPath, optional: true, reloadOnChange: true);
+
         builder.Services.AddSerilog();
         builder.Services.Configure<SnareOptions>(builder.Configuration.GetSection(SnareOptions.SectionName));
         builder.Services
@@ -60,6 +67,8 @@ public partial class App : Application
         builder.Services.AddSingleton<RecordingSettingsStore>();
         builder.Services.AddSingleton<RecordingService>();
         builder.Services.AddSingleton<ScrollCaptureService>();
+        builder.Services.AddSingleton(new UserSettingsStore(UserSettingsStore.DefaultPath));
+        builder.Services.AddSingleton<SettingsService>();
         builder.Services.AddSingleton<VideoPlayerService>();
         builder.Services.AddSingleton<FreezeOverlaySpike>();
         builder.Services.AddSingleton<SkiaCanvasSpike>();

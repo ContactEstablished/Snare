@@ -14,9 +14,9 @@ public sealed record HotkeyConflict(string Gesture, HotkeyOwner LikelyOwner)
     public string Advice => LikelyOwner switch
     {
         HotkeyOwner.Snagit =>
-            $"Turn off Snagit's {Gesture} hotkey or quit Snagit, then restart Snare.",
+            $"Turn off Snagit's {Gesture} hotkey or quit Snagit, then restart Snare, or pick another key in Snare's Settings.",
         HotkeyOwner.SnippingTool =>
-            "Turn off Settings > Accessibility > Keyboard > \"Use the Print screen key to open screen capture\", then restart Snare.",
-        _ => $"Close the app that uses {Gesture}, then restart Snare.",
+            "Turn off Settings > Accessibility > Keyboard > \"Use the Print screen key to open screen capture\", then restart Snare, or pick another key in Snare's Settings.",
+        _ => $"Close the app that uses {Gesture}, then restart Snare, or pick another key in Snare's Settings.",
     };
 }

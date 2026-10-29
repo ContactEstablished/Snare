@@ -1,0 +1,117 @@
+<Window x:Class="Snare.App.Settings.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Snare.App.Settings"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance local:SettingsViewModel}"
+        x:ClassModifier="internal"
+        Title="Snare settings"
+        Width="560"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="#FF1E1E1E"
+        Foreground="White"
+        FontFamily="Segoe UI"
+        FontSize="13">
+    <Window.Resources>
+        <Style TargetType="TextBlock" x:Key="Section">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,16,0,6" />
+        </Style>
+        <Style TargetType="TextBlock" x:Key="Note">
+            <Setter Property="Foreground" Value="#AAFFFFFF" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+        </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Margin" Value="0,0,14,0" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#FF2B2B2B" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#FF444444" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="CaretBrush" Value="White" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+    </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
+    </Window.InputBindings>
+
+    <StackPanel Margin="22,10,22,18">
+        <TextBlock Text="Hotkeys" Style="{StaticResource Section}" />
+        <ItemsControl ItemsSource="{Binding Hotkeys}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type local:HotkeyItemViewModel}">
+                    <DockPanel Margin="0,3">
+                        <TextBlock Text="{Binding Label}" Width="160" VerticalAlignment="Center" />
+                        <!-- View wiring captures the key press; the text is read-only. -->
+                        <TextBox Text="{Binding DisplayText, Mode=OneWay}" IsReadOnly="True" IsReadOnlyCaretVisible="False"
+                                 Tag="{Binding}" PreviewKeyDown="OnHotkeyKey" PreviewKeyUp="OnHotkeyKeyUp"
+                                 ToolTip="Click, then press the keys. Backspace turns it off." />
+                    </DockPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Text="Library" Style="{StaticResource Section}" />
+        <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Browse…" Command="{Binding BrowseLibraryCommand}" />
+            <TextBox Text="{Binding LibraryRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DefaultLibraryRoot}" />
+        </DockPanel>
+        <TextBlock Style="{StaticResource Note}">
+            <Run Text="Empty means" /> <Run Text="{Binding DefaultLibraryRoot, Mode=OneWay}" /><Run Text=". New captures go to the new folder; existing captures stay where they are." />
+        </TextBlock>
+
+        <TextBlock Text="Captures" Style="{StaticResource Section}" />
+        <CheckBox Content="Open the editor after a capture (instead of the quick bar)" IsChecked="{Binding OpenEditorAfterCapture}" />
+        <CheckBox Content="Include the mouse pointer" IsChecked="{Binding IncludeCursor}" />
+        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+            <TextBlock Text="Save captures as" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <RadioButton Content="PNG" IsChecked="{Binding UseJpeg, Converter={x:Static local:SettingsWindow.Not}}" VerticalAlignment="Center" />
+            <RadioButton Content="JPG, quality" IsChecked="{Binding UseJpeg}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox Text="{Binding JpegQuality, UpdateSourceTrigger=PropertyChanged}" Width="44" IsEnabled="{Binding UseJpeg}" />
+        </StackPanel>
+        <DockPanel Margin="0,8,0,0">
+            <TextBlock DockPanel.Dock="Left" Text="FFmpeg" VerticalAlignment="Center" Width="60" />
+            <Button DockPanel.Dock="Right" Content="Browse…" Command="{Binding BrowseFfmpegCommand}" />
+            <TextBox Text="{Binding FfmpegPath, UpdateSourceTrigger=PropertyChanged}" ToolTip="Empty: tools\ffmpeg next to Snare, then PATH" />
+        </DockPanel>
+
+        <TextBlock Text="Startup" Style="{StaticResource Section}" />
+        <CheckBox Content="Start Snare when I sign in to Windows" IsChecked="{Binding StartWithWindows}" />
+
+        <TextBlock Text="Backup" Style="{StaticResource Section}" />
+        <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Browse…" Command="{Binding BrowseBackupCommand}" />
+            <TextBox Text="{Binding BackupFolder, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DefaultBackupFolder}" />
+        </DockPanel>
+        <TextBlock Style="{StaticResource Note}">
+            <Run Text="Empty means" /> <Run Text="{Binding DefaultBackupFolder, Mode=OneWay}" /><Run Text=". A backup is a zip of the library database and the originals; the 10 newest are kept." />
+        </TextBlock>
+        <DockPanel Margin="0,8,0,0">
+            <Button DockPanel.Dock="Right" Content="Back up now" Command="{Binding BackUpNowCommand}" />
+            <TextBlock Text="{Binding LastBackupText}" VerticalAlignment="Center" Foreground="#AAFFFFFF" />
+        </DockPanel>
+        <TextBlock Text="{Binding BackupStatus}" Style="{StaticResource Note}" />
+
+        <TextBlock Text="{Binding Problem}" Foreground="#FFFFB74D" TextWrapping="Wrap" Margin="0,16,0,0" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Save" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="80" />
+            <Button Content="Cancel" Command="{Binding CancelCommand}" MinWidth="80" />
+        </StackPanel>
+    </StackPanel>
+</Window>
