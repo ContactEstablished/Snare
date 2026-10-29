@@ -23,6 +23,7 @@ public sealed class ShellService(
         tray.Show(new TrayMenuActions(
             Capture: () => _ = capture.CaptureAsync(),
             CaptureAfterDelay: seconds => _ = capture.CaptureAsync(seconds),
+            GrabText: () => _ = capture.GrabTextAsync(),
             OpenLibrary: library.Show));
 
         // Phase 0 harnesses stay until their manual checks in docs/phases/0-foundation/task.md are ticked.
@@ -55,6 +56,9 @@ public sealed class ShellService(
         {
             case HotkeyAction.CaptureImage:
                 _ = capture.CaptureAsync();
+                break;
+            case HotkeyAction.GrabText:
+                _ = capture.GrabTextAsync();
                 break;
             case HotkeyAction.RepeatLastRegion:
                 _ = capture.RepeatLastRegionAsync();
