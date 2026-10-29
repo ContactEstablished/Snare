@@ -33,6 +33,8 @@ public sealed class FreezeOverlaySpike(IScreenFreezer freezer, ILogger<FreezeOve
 
             var window = new FreezeOverlayWindow(desktop, monitor);
             window.KeyDown += (_, e) => OnKeyDown(e, desktop);
+            // Alt+F4 closes one overlay without Esc; take the others down with it.
+            window.Closed += (_, _) => CloseAll(except: window);
             _open.Add(window);
             window.Show();
         }
@@ -53,13 +55,14 @@ public sealed class FreezeOverlaySpike(IScreenFreezer freezer, ILogger<FreezeOve
         }
     }
 
-    private void CloseAll()
+    private void CloseAll(Window? except = null)
     {
-        foreach (var window in _open)
+        // Clear first: each Close raises Closed, which calls back in here.
+        var windows = _open.ToList();
+        _open.Clear();
+        foreach (var window in windows.Where(w => w != except))
         {
             window.Close();
         }
-
-        _open.Clear();
     }
 }

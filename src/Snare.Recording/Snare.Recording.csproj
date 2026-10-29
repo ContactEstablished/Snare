@@ -16,8 +16,4 @@
     <ProjectReference Include="..\Snare.Interop\Snare.Interop.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="Snare.Recording.Tests" />
-  </ItemGroup>
-
 </Project>

@@ -33,10 +33,21 @@ public sealed class PixelBuffer
 
     public byte[] Pixels { get; }
 
+    /// <summary>Bytes needed for a width x height buffer; throws if one array can't hold it.</summary>
+    public static int ByteCount(int width, int height)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+        var count = (long)width * height * BytesPerPixel;
+        return count <= Array.MaxLength
+            ? (int)count
+            : throw new ArgumentOutOfRangeException(nameof(width), $"{width}x{height} is too large for one buffer.");
+    }
+
     /// <summary>A new buffer filled with one opaque color.</summary>
     public static PixelBuffer Filled(int width, int height, uint argb)
     {
-        var buffer = new PixelBuffer(width, height, new byte[width * height * BytesPerPixel]);
+        var buffer = new PixelBuffer(width, height, new byte[ByteCount(width, height)]);
         var span = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, uint>(buffer.Pixels.AsSpan());
         span.Fill(argb); // little-endian uint 0xAARRGGBB is stored as B, G, R, A
         return buffer;

@@ -32,9 +32,10 @@ Run with `dotnet run --project src/Snare.App`, or `dotnet build` and then `src\S
   - The readout's coordinates run from (0, 0) at the primary's top-left. The upper monitor shows negative Y, starting at (856, −1440).
   - The color shown in the readout matches the pixel under the crosshair.
   - An open menu or tooltip (for example, hover a toolbar button, wait for its tooltip, then press `PrtSc`) appears in the frozen image.
-  - Esc closes both overlays.
+  - Esc closes both overlays, and so does Alt+F4 on either one.
+- [ ] **Optional, mixed DPI:** temporarily set the upper monitor to 125% scaling (Settings → Display), restart Snare, and repeat the freeze overlay check. Each overlay must still fill exactly its own monitor. Then set it back to 100%.
 - [ ] **Skia canvas:** open Spikes → Skia canvas (5120×2880 pattern), then maximize the window. Drag both arrow ends around quickly. The movement feels smooth, and the title bar shows a paint time well under 16 ms. Repeat after Spikes → Freeze overlay → **Ctrl+S**, which opens the canvas on the real frozen desktop. Note the paint time either way; if it's over 16 ms, Phase 2 moves to `SKGLElement` (GPU).
-- [ ] **Recording:** open Spikes → Record 20 s test. Talk the whole time, play some audio, click around and stay in front of the webcam. The script runs on wall-clock time: pause at 5 s, resume at 8 s, webcam hidden 11–14 s, mic muted 15–18 s, stop at 22 s. When the tray notification says it's done, open the MP4 from `%LOCALAPPDATA%\Snare\spikes` and check:
+- [ ] **Recording:** open Spikes → Record 22 s test. Talk the whole time, play some audio, click around and stay in front of the webcam. The script runs on wall-clock time: pause at 5 s, resume at 8 s, webcam hidden 11–14 s, mic muted 15–18 s, stop at 22 s. When the tray notification says it's done, open the MP4 from `%LOCALAPPDATA%\Snare\spikes` and check:
   - the video is 4096×1152 and about 19 s long (the 3 s pause is cut out);
   - both your voice and the system audio are audible;
   - the webcam is in the bottom-right corner, about a fifth of the height;

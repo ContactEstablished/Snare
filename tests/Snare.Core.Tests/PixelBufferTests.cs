@@ -20,6 +20,13 @@ public class PixelBufferTests
     }
 
     [Fact]
+    public void ByteCount_RejectsSizesThatOverflowAnArray()
+    {
+        Assert.Equal(5120 * 2880 * 4, PixelBuffer.ByteCount(5120, 2880));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PixelBuffer.ByteCount(40_000, 40_000));
+    }
+
+    [Fact]
     public void GetArgb_RejectsPointsOutsideTheImage()
     {
         var buffer = PixelBuffer.Filled(2, 2, 0);

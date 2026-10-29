@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>$(SnareWindowsTargetFramework)</TargetFramework>
+    <!-- Per-Monitor V2 like the app, so explicit real-desktop tests see physical pixels. -->
+    <ApplicationManifest>..\..\src\Snare.App\app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>

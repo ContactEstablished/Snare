@@ -29,6 +29,9 @@
     <Project Path="tests/Snare.Capture.Tests/Snare.Capture.Tests.csproj">
       <Platform Project="x64" />
     </Project>
+    <Project Path="tests/Snare.Interop.Tests/Snare.Interop.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
     <Project Path="tests/Snare.Core.Tests/Snare.Core.Tests.csproj">
       <Platform Project="x64" />
     </Project>

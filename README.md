@@ -8,6 +8,7 @@ A personal Snagit-style screen capture app for Windows. Region, window and scrol
 
 - Windows 11
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [Visual C++ x64 runtime](https://aka.ms/vs/17/release/vc_redist.x64.exe), needed by ScreenRecorderLib for video
 - Visual Studio 2026, Rider, or VS Code with C# Dev Kit
 
 ## Build and run

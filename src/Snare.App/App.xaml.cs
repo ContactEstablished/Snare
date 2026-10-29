@@ -47,7 +47,6 @@ public partial class App : Application
         builder.Services.AddSingleton<ShellService>();
         builder.Services.AddSingleton<FreezeOverlaySpike>();
         builder.Services.AddSingleton<SkiaCanvasSpike>();
-        builder.Services.AddSingleton<RecordingSpike>();
         builder.Services.AddSingleton<RecordingSpikeRunner>();
 
         _host = builder.Build();

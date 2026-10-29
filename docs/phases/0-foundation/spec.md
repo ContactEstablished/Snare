@@ -40,13 +40,14 @@ Two monitors at 100% scaling: a 5120×1440 primary at (0, 0) and a 3440×1440 mo
 ### 4. Video (ScreenRecorderLib 7.0.1)
 
 - `ScreenRecorderLib` is added to `Snare.Recording`. Because it is a native C++/CLI library, `Snare.Recording`, `Snare.App` and `Snare.Recording.Tests` build for `x64` only.
-- `RecordingSpike` (Recording) records the primary monitor for about 20 seconds:
+- `RecordingSpike` (Recording) records the primary monitor for about 22 seconds:
   - default mic plus system audio (loopback) at set volumes;
   - the default webcam as a bottom-right overlay at 20% of the output height;
   - click highlighting;
   - pause at 5 s and resume at 8 s;
-  - the webcam overlay toggled off at 11 s and back on at 14 s;
-  - stop at 20 s.
+  - the webcam overlay hidden at 11 s and shown again at 14 s (moved off the canvas, since ScreenRecorderLib has no overlay on/off switch);
+  - the mic muted at 15 s and unmuted at 18 s;
+  - stop at 22 s. A failure reported by the recorder ends the script at once.
 - The output goes to `%LOCALAPPDATA%\Snare\spikes\recording-spike-<timestamp>.mp4`, along with the ScreenRecorderLib log.
 - `RecordingFrameSize.Fit` (Recording) applies the Decided rule: anything wider than 4096 px scales down to 4096 wide, keeping the aspect ratio and even dimensions. It has unit tests, and the spike uses it, so the 5120×1440 primary records at 4096×1152.
 

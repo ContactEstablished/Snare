@@ -312,7 +312,7 @@ Recordings are MP4 files (H.264 video, AAC audio) made with ScreenRecorderLib. T
 - Trimming the start and end (FFmpeg stream copy) and GIF export (FFmpeg with a palette pass) are in v1.
 - A separate webcam file, composited later so the webcam can be moved or hidden after recording, is after v1.
 
-**Spike before Phase 4:** confirm ScreenRecorderLib can toggle the webcam overlay mid-recording, mix mic and system audio at set levels, and pause cleanly. It is a native library, so the app will likely need an x64 platform target. The fallback is FFmpeg capture or Media Foundation directly. A failed spike is a stack change and goes back to Matt.
+**Spike before Phase 4:** confirm ScreenRecorderLib can toggle the webcam overlay mid-recording, mix mic and system audio at set levels, and pause cleanly. It is a native C++/CLI library (built for .NET Framework 4.8, loading fine on .NET 10) that needs the Visual C++ x64 runtime, so the whole solution builds x64 only (Decided in Phase 0). The fallback is FFmpeg capture or Media Foundation directly. A failed spike is a stack change and goes back to Matt.
 
 ## Scrolling capture
 
@@ -349,7 +349,7 @@ Scrolling capture ships in two stages. Manual comes first because it works in an
 
 Seven phases, each usable on its own. Phases run back to back without stopping for review (Decided). Checks that need Matt's eyes or hands are built as runnable harnesses and listed under **Awaiting Matt** in the phase's `task.md`. A phase whose code is merged but still has unticked checks is *code-complete*; the next phase starts anyway. Work stops for Matt only when a spike forces a stack change or a new decision comes up.
 
-**Phase 0: Foundation and spikes**
+**Phase 0: Foundation and spikes** (code-complete Oct 28, 2026; manual checks in [task.md](phases/0-foundation/task.md))
 
 - [x] Solution scaffolded as in Architecture; builds clean with warnings as errors
 - [x] Generic Host with DI, Serilog and a settings file

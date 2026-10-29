@@ -15,6 +15,11 @@ public static class ScreenGrabber
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+        var byteCount = (long)width * height * 4;
+        if (byteCount > Array.MaxLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width), $"A {width}x{height} grab is too large for one buffer.");
+        }
 
         var screenDc = PInvoke.GetDC(HWND.Null);
         if (screenDc.IsNull)
@@ -40,7 +45,7 @@ public static class ScreenGrabber
                 throw new InvalidOperationException("BitBlt failed.");
             }
 
-            var pixels = new byte[width * height * 4];
+            var pixels = new byte[byteCount];
             var header = new BITMAPINFO
             {
                 bmiHeader = new BITMAPINFOHEADER

@@ -19,6 +19,8 @@ namespace Snare.App.Spikes;
 /// </summary>
 internal sealed class FreezeOverlayWindow : Window
 {
+    private const int WmDpiChanged = 0x02E0;
+
     private readonly FrozenDesktop _desktop;
     private readonly FrozenMonitor _monitor;
     private readonly Line _horizontal = CrosshairLine();
@@ -68,7 +70,11 @@ internal sealed class FreezeOverlayWindow : Window
         root.Children.Add(canvas);
         Content = root;
 
-        SourceInitialized += (_, _) => PlaceOnMonitor();
+        SourceInitialized += (_, _) =>
+        {
+            HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(KeepPhysicalBounds);
+            PlaceOnMonitor();
+        };
         MouseMove += (_, e) => UpdateCrosshair(e.GetPosition(canvas));
     }
 
@@ -76,6 +82,19 @@ internal sealed class FreezeOverlayWindow : Window
     {
         var b = _monitor.Monitor.Bounds;
         WindowPlacement.SetTopmostPhysicalBounds(new WindowInteropHelper(this).Handle, b.X, b.Y, b.Width, b.Height);
+    }
+
+    // Moving onto a monitor with another DPI sends WM_DPICHANGED, and WPF would resize the window
+    // to the suggested rect. Re-apply the exact physical bounds instead.
+    private nint KeepPhysicalBounds(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
+    {
+        if (msg == WmDpiChanged)
+        {
+            PlaceOnMonitor();
+            handled = true;
+        }
+
+        return 0;
     }
 
     private void UpdateCrosshair(Point dip)

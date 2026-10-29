@@ -114,13 +114,13 @@ public sealed class RecordingSpike(ILogger<RecordingSpike> logger)
         recorder.Record(videoPath);
         try
         {
-            await Step(5, "pause", recorder.Pause, cancellationToken);
-            await Step(3, "resume", recorder.Resume, cancellationToken);
-            await Step(3, "hide webcam", () => MoveWebcam(recorder, webcam, HiddenOffset), cancellationToken);
-            await Step(3, "show webcam", () => MoveWebcam(recorder, webcam, webcamOffset), cancellationToken);
-            await Step(1, "mute mic", () => SetVolume(recorder, mic, 0), cancellationToken);
-            await Step(3, "unmute mic", () => SetVolume(recorder, mic, 1.0f), cancellationToken);
-            await Step(4, "stop", recorder.Stop, cancellationToken);
+            await Step(5, "pause", recorder.Pause, finished.Task, cancellationToken);
+            await Step(3, "resume", recorder.Resume, finished.Task, cancellationToken);
+            await Step(3, "hide webcam", () => MoveWebcam(recorder, webcam, HiddenOffset), finished.Task, cancellationToken);
+            await Step(3, "show webcam", () => MoveWebcam(recorder, webcam, webcamOffset), finished.Task, cancellationToken);
+            await Step(1, "mute mic", () => SetVolume(recorder, mic, 0), finished.Task, cancellationToken);
+            await Step(3, "unmute mic", () => SetVolume(recorder, mic, 1.0f), finished.Task, cancellationToken);
+            await Step(4, "stop", recorder.Stop, finished.Task, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -133,9 +133,18 @@ public sealed class RecordingSpike(ILogger<RecordingSpike> logger)
         return path;
     }
 
-    private async Task Step(int afterSeconds, string name, Action action, CancellationToken cancellationToken)
+    /// <summary>Waits, then runs one script step, unless the recorder has already ended or failed.</summary>
+    private async Task Step(
+        int afterSeconds, string name, Action action, Task<string> finished, CancellationToken cancellationToken)
     {
-        await Task.Delay(TimeSpan.FromSeconds(afterSeconds), cancellationToken);
+        await Task.WhenAny(Task.Delay(TimeSpan.FromSeconds(afterSeconds), cancellationToken), finished);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (finished.IsCompleted)
+        {
+            await finished; // rethrows the recorder's own failure
+            throw new InvalidOperationException($"The recording ended before the \"{name}\" step.");
+        }
+
         logger.LogInformation("Recording spike step: {Step}", name);
         action();
     }
