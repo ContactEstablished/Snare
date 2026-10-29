@@ -19,6 +19,17 @@ public interface ICaptureStore
 
     Task<CaptureRecord?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>The path a new recording should be written to (it lives in the library from the start).</summary>
+    string NewVideoPath(DateTimeOffset capturedAt);
+
+    /// <summary>Adds a finished recording, already at <paramref name="path"/>, with an optional PNG thumbnail.</summary>
+    Task<CaptureRecord> SaveVideoAsync(
+        string path, int width, int height, long durationMs, CaptureSource source, DateTimeOffset capturedAt, byte[]? thumbnailPng,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>After the file was replaced in place (a trim): new duration and thumbnail.</summary>
+    Task<CaptureRecord> UpdateVideoAsync(Guid id, long durationMs, byte[]? thumbnailPng, CancellationToken cancellationToken = default);
+
     /// <summary>Soft delete; files stay until the Trash is emptied.</summary>
     Task MoveToTrashAsync(Guid id, CancellationToken cancellationToken = default);
 
