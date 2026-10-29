@@ -37,7 +37,9 @@ Snare is a personal, Windows-only Snagit replacement built with .NET 10 and WPF.
 
 ## Workflow
 
-- One phase per branch and worktree. Each phase gets `docs/phases/<n>-<name>/spec.md` and `task.md`, cut from the build plan.
-- Items marked **Open** in the build plan need Matt's answer before the phase that depends on them starts. Ask; don't decide them silently.
+- One phase per branch (`phase/<n>-<name>`) and worktree. Each phase gets `docs/phases/<n>-<name>/spec.md` and `task.md`, cut from the build plan.
+- Items marked **Open** in the build plan need Matt's answer before the phase that depends on them starts. Ask; don't decide them silently. A new question that comes up mid-phase is added to the plan as **Open** and put to Matt.
+- Checks that need Matt's eyes or hands go under an **Awaiting Matt** heading in `task.md`, with a runnable harness or exact steps. They don't block the next phase.
+- Before a phase merges, a code-review subagent reviews its diff. Then merge into `main` with `--no-ff` and push `main` and the phase branch to `origin`.
 - A task is done when it builds clean, its tests pass, its manual check is ticked in `task.md`, and the build plan reflects any decision it changed.
 - Never commit FFmpeg or other large binaries (see `tools/ffmpeg/README.md`).
