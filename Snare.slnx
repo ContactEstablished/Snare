@@ -26,6 +26,9 @@
     </Project>
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Snare.App.Tests/Snare.App.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
     <Project Path="tests/Snare.Capture.Tests/Snare.Capture.Tests.csproj">
       <Platform Project="x64" />
     </Project>

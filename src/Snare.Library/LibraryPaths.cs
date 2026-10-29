@@ -39,6 +39,31 @@ public sealed class LibraryPaths
         return Path.Combine(LibraryRoot, year, month, $"{stem}.{extension}");
     }
 
+    /// <summary>
+    /// The export path for a capture, with _2, _3 and so on appended when another capture
+    /// from the same second already has the name.
+    /// </summary>
+    public string UniqueExportPathFor(DateTimeOffset capturedAt, ExportFormat format, Func<string, bool> exists)
+    {
+        ArgumentNullException.ThrowIfNull(exists);
+
+        var path = ExportPathFor(capturedAt, format);
+        var folder = Path.GetDirectoryName(path)!;
+        var stem = Path.GetFileNameWithoutExtension(path);
+        var extension = Path.GetExtension(path);
+
+        for (var n = 2; exists(path); n++)
+        {
+            path = Path.Combine(folder, string.Create(CultureInfo.InvariantCulture, $"{stem}_{n}{extension}"));
+        }
+
+        return path;
+    }
+
+    public string OriginalPathFor(Guid id) => Path.Combine(OriginalsFolder, $"{id:N}.png");
+
+    public string ThumbnailPathFor(Guid id) => Path.Combine(ThumbnailsFolder, $"{id:N}.webp");
+
     public static LibraryPaths FromOptions(SnareOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

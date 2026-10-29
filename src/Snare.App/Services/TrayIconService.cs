@@ -8,7 +8,7 @@ using Snare.Core.Hotkeys;
 
 namespace Snare.App.Services;
 
-/// <summary>Owns the tray icon and its menu. Capture and Library light up in Phase 1.</summary>
+/// <summary>Owns the tray icon and its menu.</summary>
 public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposable
 {
     private const string AppName = "Snare";
@@ -16,16 +16,24 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
     private readonly MenuItem _spikesMenu = new() { Header = "Spikes" };
     private TaskbarIcon? _trayIcon;
 
-    public void Show()
+    public void Show(TrayMenuActions actions)
     {
+        ArgumentNullException.ThrowIfNull(actions);
         if (_trayIcon is not null)
         {
             return;
         }
 
         var menu = new ContextMenu();
-        menu.Items.Add(new MenuItem { Header = "Capture (Phase 1)", IsEnabled = false });
-        menu.Items.Add(new MenuItem { Header = "Library (Phase 1)", IsEnabled = false });
+        menu.Items.Add(Item("Capture", actions.Capture, "PrtSc"));
+        var delayed = new MenuItem { Header = "Capture after delay" };
+        foreach (var seconds in new[] { 3, 5, 10 })
+        {
+            delayed.Items.Add(Item($"{seconds} seconds", () => actions.CaptureAfterDelay(seconds)));
+        }
+
+        menu.Items.Add(delayed);
+        menu.Items.Add(Item("Library", actions.OpenLibrary));
         menu.Items.Add(new Separator());
         menu.Items.Add(_spikesMenu);
         menu.Items.Add(new Separator());
@@ -83,4 +91,11 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
     }
 
     public void Dispose() => _trayIcon?.Dispose();
+
+    private static MenuItem Item(string header, Action run, string? gesture = null)
+    {
+        var item = new MenuItem { Header = header, InputGestureText = gesture ?? "" };
+        item.Click += (_, _) => run();
+        return item;
+    }
 }

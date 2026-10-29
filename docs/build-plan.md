@@ -161,7 +161,7 @@ Annotations are a versioned JSON document of vector objects drawn over the origi
 - Export strips metadata chunks. JPG quality defaults to 90.
 - Delete is soft, with a Trash view. Emptying Trash removes the files.
 - Originals stay as plain PNGs in `%LOCALAPPDATA%`; no DPAPI. Each capture has a **Discard original** action that makes the export permanent and ends re-editing. The editor suggests it when a capture has a Redact object.
-- Files added, moved or deleted outside the app are reconciled on startup.
+- Files added, moved or deleted outside the app are reconciled on startup (Phase 3).
 
 ## Image capture
 
@@ -179,7 +179,7 @@ Every still capture freezes all monitors first, then Matt selects on the frozen 
 | Region | Drag | Handles to adjust before accepting; arrow keys nudge 1 px, Shift+arrow 10 px (`SelectionNudge`) |
 | Window | Hover highlights the window, click to take it | Bounds from `DWMWA_EXTENDED_FRAME_BOUNDS` (`WindowBounds`) so invisible borders are excluded. A plain rectangle cropped from the frozen frame; no rounded-corner transparency |
 | Full screen | Key in the overlay | Monitor under the cursor; another key for all monitors |
-| Repeat last region | Its own hotkey | Decided |
+| Repeat last region | `Ctrl+PrtSc` | Decided; key chosen in Phase 1, configurable in Phase 6 |
 | Delayed | 3, 5 or 10 second countdown | Decided; catches menus that close on keypress |
 
 **Overlay behavior**
@@ -190,7 +190,7 @@ Every still capture freezes all monitors first, then Matt selects on the frozen 
 
 **Hotkeys (Decided)**
 
-- `PrtSc` takes an image, `Shift+PrtSc` starts video, `Ctrl+Shift+PrtSc` starts a scrolling capture.
+- `PrtSc` takes an image, `Shift+PrtSc` starts video, `Ctrl+Shift+PrtSc` starts a scrolling capture, `Ctrl+PrtSc` repeats the last region.
 - Snagit currently owns `PrtSc`. Matt turns off Snagit's hotkey, or quits Snagit, while using Snare.
 - If registering a hotkey fails, the tray tooltip and log say so, naming the likely owner (Snagit or Snipping Tool's Windows setting). Hotkeys become configurable in Phase 6.
 
@@ -359,7 +359,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 - [ ] Spike: ScreenRecorderLib records with mic, system audio and webcam overlay
 - [ ] Spike: SkiaSharp canvas in WPF draws and drags an arrow smoothly on a 5120×2880 capture
 
-**Phase 1: Capture and library**
+**Phase 1: Capture and library** (code-complete Oct 29, 2026; manual checks in [task.md](phases/1-capture/task.md))
 
 - [ ] Region, window and full-screen capture from the hotkey
 - [ ] Delayed capture and repeat last region

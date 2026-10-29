@@ -1,0 +1,52 @@
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Snare.Core.Options;
+using Snare.Rendering;
+
+namespace Snare.Library.Tests;
+
+/// <summary>A throwaway library under %TEMP%, deleted when the test ends.</summary>
+internal sealed class TempLibrary : IDisposable
+{
+    private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("snare-library-");
+
+    public TempLibrary(SnareOptions? options = null)
+    {
+        Paths = new LibraryPaths(Path.Combine(_root.FullName, "Pictures"), Path.Combine(_root.FullName, "AppData"));
+        Options = options ?? new SnareOptions();
+        Store = new SqliteCaptureStore(
+            Paths, new FixedOptions(Options), new AnnotationRenderer(), Clock, NullLogger<SqliteCaptureStore>.Instance);
+    }
+
+    public LibraryPaths Paths { get; }
+
+    public SnareOptions Options { get; }
+
+    public TestClock Clock { get; } = new(new DateTimeOffset(2026, 10, 28, 9, 30, 15, TimeSpan.FromHours(-4)));
+
+    public SqliteCaptureStore Store { get; }
+
+    public SqliteConnection OpenDatabase()
+    {
+        var connection = new SqliteConnection($"Data Source={Paths.DatabasePath}");
+        connection.Open();
+        return connection;
+    }
+
+    public void Dispose()
+    {
+        // Pooled connections keep library.db open.
+        SqliteConnection.ClearAllPools();
+        _root.Delete(recursive: true);
+    }
+
+    private sealed class FixedOptions(SnareOptions value) : IOptionsMonitor<SnareOptions>
+    {
+        public SnareOptions CurrentValue => value;
+
+        public SnareOptions Get(string? name) => value;
+
+        public IDisposable? OnChange(Action<SnareOptions, string?> listener) => null;
+    }
+}

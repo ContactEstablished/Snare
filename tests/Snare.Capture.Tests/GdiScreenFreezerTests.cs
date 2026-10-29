@@ -10,7 +10,7 @@ public class GdiScreenFreezerTests
     [Fact(Explicit = true)]
     public void Freeze_GrabsEveryMonitorAtItsPhysicalSize()
     {
-        var desktop = new GdiScreenFreezer(TimeProvider.System).Freeze();
+        var desktop = new GdiScreenFreezer(TimeProvider.System).Freeze(includeCursor: true);
 
         Assert.NotEmpty(desktop.Monitors);
         var primary = Assert.Single(desktop.Monitors, m => m.Monitor.IsPrimary);
@@ -30,6 +30,15 @@ public class GdiScreenFreezerTests
                 Assert.True(pixels[i] == 0xFF, $"Pixel {i / 4} on {monitor.Monitor.DeviceName} is not opaque.");
             }
         }
+
+        Assert.NotEmpty(desktop.Windows);
+        Assert.DoesNotContain(desktop.Windows, w => w.Bounds.IsEmpty);
+        foreach (var window in desktop.Windows.Take(5))
+        {
+            TestContext.Current.SendDiagnosticMessage($"window {window.ProcessName} \"{window.Title}\" {window.Bounds}");
+        }
+
+        TestContext.Current.SendDiagnosticMessage($"source under cursor: {desktop.SourceUnderCursor()}");
 
         var composed = VirtualDesktopComposer.Compose(desktop);
         Assert.Equal(desktop.Bounds.Width, composed.Width);

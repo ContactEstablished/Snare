@@ -6,4 +6,5 @@ public enum HotkeyAction
     CaptureImage,
     RecordVideo,
     CaptureScrolling,
+    RepeatLastRegion,
 }
