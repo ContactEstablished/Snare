@@ -15,4 +15,7 @@ public sealed class SnareOptions
     public bool IncludeCursor { get; set; }
 
     public AfterCaptureAction AfterCapture { get; set; } = AfterCaptureAction.QuickBar;
+
+    /// <summary>ffmpeg.exe or its folder; empty means toolsfmpeg next to the app, then PATH.</summary>
+    public string? FfmpegPath { get; set; }
 }
