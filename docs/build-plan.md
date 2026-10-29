@@ -505,6 +505,13 @@ Every question below was answered by Matt on Oct 28, 2026. The answers are recor
 - [x] Is horizontal scrolling needed? **No.**
 - [x] What is the longest capture Matt expects to take? **Capped at 30,000 px.**
 
+**Before Phase 6** (asked Oct 29, 2026)
+
+- [x] When the library folder changes, what happens to existing captures? **They stay where they are; new captures go to the new folder.**
+- [x] What does the one-click backup include? **A zip of library.db and the originals folder.**
+- [x] Where do backups go, and how many are kept? **`Documents\Snare Backups` by default (changeable in Settings), named by date; the 10 newest are kept.**
+- [x] Start with Windows by default? **On (the per-user Run key); a toggle in Settings.**
+
 **Process**
 
 - [x] Which phases can run without stopping for review? **All of them; manual checks batch up under Awaiting Matt.**
