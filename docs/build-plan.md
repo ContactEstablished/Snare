@@ -384,7 +384,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 - [ ] Search with filter tokens updates as Matt types
 - [ ] Grab Text copies OCR text from a region
 
-**Phase 4: Video**
+**Phase 4: Video** (code-complete Oct 29, 2026; manual checks in [task.md](phases/4-video/task.md))
 
 - [ ] Record a region, window or monitor with mic, system audio and webcam
 - [ ] The control bar never appears in the video

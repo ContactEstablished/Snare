@@ -38,7 +38,16 @@ public static class FfmpegRunner
             }
         };
 
-        process.Start();
+        try
+        {
+            process.Start();
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            // A broken path or a dangling winget link: report it like any other FFmpeg failure.
+            throw new FfmpegException($"Could not start FFmpeg at {ffmpeg}: {ex.Message}", ex);
+        }
+
         process.StandardInput.Close(); // never wait for a keypress
         process.BeginErrorReadLine();
         _ = process.StandardOutput.ReadToEndAsync(cancellationToken);

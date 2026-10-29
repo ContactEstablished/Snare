@@ -71,9 +71,9 @@ public sealed class ScreenRecorderLibRecorder(ILogger<ScreenRecorderLibRecorder>
         _path = path;
         _completed = completed;
 
-        recorder.Record(path);
         try
         {
+            recorder.Record(path);
             await started.Task.WaitAsync(StartTimeout, cancellationToken);
         }
         catch
@@ -118,10 +118,18 @@ public sealed class ScreenRecorderLibRecorder(ILogger<ScreenRecorderLibRecorder>
             throw new InvalidOperationException("No recording is running.");
         }
 
+        recorder.Stop();
         try
         {
-            recorder.Stop();
             return await completed.Task.WaitAsync(StopTimeout, cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            // Still finalizing (fast start rewrites a long take). Disposing now could corrupt the
+            // file, so let go of it without disposing; the recorder finishes on its own.
+            logger.LogWarning("The recorder took over {Timeout} to finish {Path}", StopTimeout, _path);
+            Forget();
+            throw;
         }
         finally
         {
@@ -158,14 +166,38 @@ public sealed class ScreenRecorderLibRecorder(ILogger<ScreenRecorderLibRecorder>
         }
     }
 
-    public void Dispose() => Release();
+    /// <summary>On app exit: stop and wait briefly so a recording in progress is finalized, not left unplayable.</summary>
+    public void Dispose()
+    {
+        if (_recorder is { } recorder && _completed is { } completed)
+        {
+            logger.LogWarning("Snare is closing mid-recording; finishing {Path} (it won't be in the library)", _path);
+            recorder.Stop();
+            try
+            {
+                completed.Task.Wait(TimeSpan.FromSeconds(30));
+            }
+            catch (AggregateException ex)
+            {
+                logger.LogWarning(ex, "The recording failed while closing");
+            }
+        }
+
+        Release();
+    }
 
     private void Release()
     {
         _recorder?.Dispose();
+        Forget();
+    }
+
+    private void Forget()
+    {
         _recorder = null;
         _plan = null;
         _completed = null;
+        _path = null;
     }
 
     private void TryDelete(string path)

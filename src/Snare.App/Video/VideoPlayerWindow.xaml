@@ -36,6 +36,7 @@
                 <DockPanel Margin="0,8,0,0">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                         <Button Content="Export GIF…" Command="{Binding ExportGifCommand}" IsEnabled="{Binding CanUseFfmpeg}" ToolTip="The marked range, or the whole video" />
+                        <Button Content="Copy file" Command="{Binding CopyFileCommand}" ToolTip="Copy the MP4 to paste into another app" />
                         <Button Content="Show in folder" Command="{Binding RevealCommand}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">

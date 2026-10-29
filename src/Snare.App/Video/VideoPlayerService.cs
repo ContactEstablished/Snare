@@ -1,11 +1,12 @@
 using Microsoft.Extensions.Logging;
+using Snare.App.Services;
 using Snare.Core.Captures;
 using Snare.Recording.Ffmpeg;
 
 namespace Snare.App.Video;
 
 /// <summary>Opens recordings in the player: one window per video, brought to the front if open.</summary>
-public sealed class VideoPlayerService(VideoTools tools, ICaptureStore store, ILogger<VideoPlayerService> logger)
+public sealed class VideoPlayerService(VideoTools tools, ICaptureStore store, ClipboardService clipboard, ILogger<VideoPlayerService> logger)
 {
     private readonly Dictionary<Guid, VideoPlayerWindow> _open = [];
 
@@ -18,7 +19,7 @@ public sealed class VideoPlayerService(VideoTools tools, ICaptureStore store, IL
             return;
         }
 
-        var window = new VideoPlayerWindow(new VideoPlayerViewModel(video, tools, store, logger));
+        var window = new VideoPlayerWindow(new VideoPlayerViewModel(video, tools, store, clipboard, logger));
         _open[video.Id] = window;
         window.Closed += (_, _) => _open.Remove(video.Id);
         window.Show();

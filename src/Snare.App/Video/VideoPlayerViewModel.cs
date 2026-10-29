@@ -15,7 +15,8 @@ namespace Snare.App.Video;
 /// The simple player: play, seek, mark a range, trim to it (in place) or export it as a GIF.
 /// Playback itself is the view's MediaElement; this holds the range and runs FFmpeg.
 /// </summary>
-public sealed partial class VideoPlayerViewModel(CaptureRecord capture, VideoTools tools, ICaptureStore store, ILogger logger) : ObservableObject
+public sealed partial class VideoPlayerViewModel(
+    CaptureRecord capture, VideoTools tools, ICaptureStore store, ClipboardService clipboard, ILogger logger) : ObservableObject
 {
     public CaptureRecord Capture { get; private set; } = capture;
 
@@ -103,6 +104,20 @@ public sealed partial class VideoPlayerViewModel(CaptureRecord capture, VideoToo
 
         var start = RangeStart ?? TimeSpan.Zero;
         var end = RangeEnd ?? Duration;
+
+        // The player's position can run slightly past the probed duration; keep the range inside the video.
+        if (Duration > TimeSpan.Zero)
+        {
+            start = start < Duration ? start : Duration; // a start at or past the end leaves no range: rejected below
+            end = end <= Duration ? end : Duration;
+        }
+
+        if (end - start < TimeSpan.FromSeconds(0.1))
+        {
+            Status = "Pick a range with the end after the start.";
+            return;
+        }
+
         if (Confirm?.Invoke($"Keep only {Format(start)} – {Format(end)} and delete the rest of this video? This can't be undone.") != true)
         {
             return;
@@ -153,6 +168,11 @@ public sealed partial class VideoPlayerViewModel(CaptureRecord capture, VideoToo
     [RelayCommand]
     private void Reveal() => ShellFiles.Reveal(Capture.FilePath);
 
+    /// <summary>Puts the MP4 on the clipboard as a file, for pasting into Slack, email or Explorer.</summary>
+    [RelayCommand]
+    private async Task CopyFileAsync() =>
+        Status = await clipboard.CopyFileDropAsync(Capture.FilePath) ? "Copied the video file" : "Clipboard busy";
+
     private async Task RunAsync(string busy, Func<Task<string>> work)
     {
         IsBusy = true;
@@ -161,7 +181,7 @@ public sealed partial class VideoPlayerViewModel(CaptureRecord capture, VideoToo
         {
             Status = await work();
         }
-        catch (Exception ex) when (ex is FfmpegException or IOException or InvalidOperationException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is FfmpegException or IOException or InvalidOperationException or UnauthorizedAccessException or ArgumentException)
         {
             logger.LogError(ex, "{Action} failed for {Path}", busy, Capture.FilePath);
             Status = $"Failed: {ex.Message}";

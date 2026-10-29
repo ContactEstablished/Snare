@@ -10,7 +10,7 @@ See [spec.md](spec.md).
 - [x] Capture: `RecordingTargets` (selection to one display), plus tests
 - [x] App: `RecordingService`, setup window, control bar, `Shift+PrtSc` start and stop, tray entry
 - [x] App: video player with trim and GIF export; library video tiles (▶ badge) open the player; plus tests
-- [ ] Code review, merge, push
+- [x] Code review, merge, push
 
 ## Checked by the agent on Matt's PC (Oct 29, 2026)
 
@@ -23,6 +23,7 @@ See [spec.md](spec.md).
 - The setup window shows a schematic, not a live webcam preview. ScreenRecorderLib has no preview API; see spec.md.
 - Recording covers one monitor. "All monitors" (`A`) is refused with a message.
 - Trim is a stream copy, so cuts snap to the nearest earlier keyframe (usually within about 2 s).
+- Exiting Snare mid-recording finishes the MP4 file but does not add it to the library (the log names the file). Phase 6 adds an exit prompt.
 
 ## Awaiting Matt
 
@@ -43,6 +44,8 @@ Run the Phase 0 **Recording** spike check first (`docs/phases/0-foundation/task.
   - Restart: a new countdown, and the first take is gone.
   - Discard: nothing is saved.
   - The bar can be dragged.
+- [ ] **Restart keeps privacy state:** mute the mic and hide the webcam, then Restart: the new take is still muted, with no webcam, and the bar still says so.
+- [ ] **Stop during the restart countdown:** press Restart, then Stop (or Shift+PrtSc) during the 3-2-1. Nothing keeps recording, and the next Shift+PrtSc starts a fresh recording rather than stopping a hidden one.
 - [ ] **`A` is refused:** `Shift+PrtSc` then `A` shows a "covers one monitor" notification.
 - [ ] **Library:** the recording appears with a thumbnail and a "▶ m:ss" badge. `kind:video` finds it. Double-click opens the player, and its title, description and tags can be edited in the detail pane.
 - [ ] **Player:**

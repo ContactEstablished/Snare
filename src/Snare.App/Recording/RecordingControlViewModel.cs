@@ -57,6 +57,13 @@ public sealed partial class RecordingControlViewModel(
             : t.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 
+    /// <summary>True during a Restart's countdown. Stop and Discard still work (they cancel it); Restart doesn't.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RestartCommand))]
+    public partial bool IsStarting { get; private set; }
+
+    public void SetStarting(bool starting) => IsStarting = starting;
+
     /// <summary>After a restart the clock starts again.</summary>
     public void ResetClock()
     {
@@ -98,8 +105,10 @@ public sealed partial class RecordingControlViewModel(
     [RelayCommand]
     private Task StopAsync() => stop();
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRestart))]
     private Task RestartAsync() => restart();
+
+    private bool CanRestart() => !IsStarting;
 
     [RelayCommand]
     private Task DiscardAsync() => discard();

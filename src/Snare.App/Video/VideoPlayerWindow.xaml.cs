@@ -15,6 +15,7 @@ internal sealed partial class VideoPlayerWindow : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(200) };
     private bool _playing;
     private bool _seeking;
+    private bool _closed;
 
     public VideoPlayerWindow(VideoPlayerViewModel viewModel)
     {
@@ -64,8 +65,11 @@ internal sealed partial class VideoPlayerWindow : Window
             SetPlaying(true);
             _timer.Start();
         };
+        // No closing while FFmpeg replaces the file; the reopen afterwards needs the window.
+        Closing += (_, e) => e.Cancel = _viewModel.IsBusy;
         Closed += (_, _) =>
         {
+            _closed = true;
             _timer.Stop();
             Player.Close();
         };
@@ -130,7 +134,11 @@ internal sealed partial class VideoPlayerWindow : Window
         }
         finally
         {
-            Open();
+            if (!_closed)
+            {
+                Open(); // not after the window closed mid-trim: that would lock the file again
+            }
+
             Player.Position = TimeSpan.Zero;
             Player.Pause();
         }

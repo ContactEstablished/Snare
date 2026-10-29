@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Snare.App.Recording;
+using Snare.App.Services;
 using Snare.App.Video;
 using Snare.Core.Captures;
 using Snare.Core.Geometry;
@@ -90,9 +91,40 @@ public class VideoUiTests
     }
 
     [Fact]
+    public void ControlBar_RestartIsOffWhileATakeIsStarting()
+    {
+        var controls = new RecordingControlViewModel(true, true, _ => { }, _ => { }, _ => { }, () => Task.CompletedTask, () => Task.CompletedTask, () => Task.CompletedTask);
+
+        controls.SetStarting(true);
+        Assert.False(controls.RestartCommand.CanExecute(null));
+        Assert.True(controls.StopCommand.CanExecute(null));
+        Assert.True(controls.DiscardCommand.CanExecute(null));
+
+        controls.SetStarting(false);
+        Assert.True(controls.RestartCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Player_TrimRangePastTheEnd_IsRejectedNotStuck()
+    {
+        var tools = new VideoTools(new StaticOptions(), new FfmpegLocator(_ => true, null, @"C:\fake"), NullLogger<VideoTools>.Instance);
+        var player = new VideoPlayerViewModel(Video(), tools, new FakeCaptureStore(), new ClipboardService(NullLogger<ClipboardService>.Instance), NullLogger.Instance)
+        {
+            CurrentPosition = () => TimeSpan.FromSeconds(25), // past the 20 s duration
+            Confirm = _ => throw new InvalidOperationException("should not ask"),
+        };
+        player.SetStartCommand.Execute(null);
+
+        await player.TrimCommand.ExecuteAsync(null);
+
+        Assert.False(player.IsBusy);
+        Assert.Equal("Pick a range with the end after the start.", player.Status);
+    }
+
+    [Fact]
     public void Player_RangeMarksAndClears()
     {
-        var player = new VideoPlayerViewModel(Video(), NoFfmpeg(), new FakeCaptureStore(), NullLogger.Instance);
+        var player = new VideoPlayerViewModel(Video(), NoFfmpeg(), new FakeCaptureStore(), new ClipboardService(NullLogger<ClipboardService>.Instance), NullLogger.Instance);
         var now = TimeSpan.FromSeconds(5);
         player.CurrentPosition = () => now;
 
@@ -112,7 +144,7 @@ public class VideoUiTests
     [Fact]
     public void Player_WithoutFfmpeg_ExplainsAndDisablesTrim()
     {
-        var player = new VideoPlayerViewModel(Video(), NoFfmpeg(), new FakeCaptureStore(), NullLogger.Instance);
+        var player = new VideoPlayerViewModel(Video(), NoFfmpeg(), new FakeCaptureStore(), new ClipboardService(NullLogger<ClipboardService>.Instance), NullLogger.Instance);
 
         Assert.False(player.CanUseFfmpeg);
         Assert.Contains("winget install Gyan.FFmpeg", player.FfmpegHint, StringComparison.Ordinal);
@@ -131,7 +163,7 @@ public class VideoUiTests
             var bar = new RecordingControlBar(controls, new PixelRect(100, 100, 800, 600), new MonitorInfo("m", bounds, bounds, 96, true));
             Assert.Same(controls, bar.DataContext);
 
-            var playerModel = new VideoPlayerViewModel(Video(), NoFfmpeg(), new FakeCaptureStore(), NullLogger.Instance);
+            var playerModel = new VideoPlayerViewModel(Video(), NoFfmpeg(), new FakeCaptureStore(), new ClipboardService(NullLogger<ClipboardService>.Instance), NullLogger.Instance);
             var player = new VideoPlayerWindow(playerModel);
             Assert.Same(playerModel, player.DataContext);
             Assert.StartsWith("Snare — ", playerModel.Title, StringComparison.Ordinal);

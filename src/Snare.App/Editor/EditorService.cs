@@ -37,10 +37,7 @@ public sealed class EditorService(
             // One entry point for "open this capture": recordings go to the player.
             if (record.Kind == CaptureKind.Video)
             {
-                if (services.GetService(typeof(Snare.App.Video.VideoPlayerService)) is Snare.App.Video.VideoPlayerService player)
-                {
-                    player.Open(record);
-                }
+                services.GetRequiredService<Snare.App.Video.VideoPlayerService>().Open(record);
 
                 return;
             }

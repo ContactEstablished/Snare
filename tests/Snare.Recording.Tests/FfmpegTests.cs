@@ -28,6 +28,56 @@ public class FfmpegTests
     }
 
     [Fact]
+    public void ParseProbe_FindsTheVideoStreamWhenAudioIsListedFirst()
+    {
+        const string audioFirst = """
+              Duration: 00:00:05.00, start: 0.000000, bitrate: 900 kb/s
+              Stream #0:0(und): Audio: aac (LC), 48000 Hz, stereo, fltp, 128 kb/s
+              Stream #0:1(und): Video: h264 (High), yuv420p(progressive), 1280x720, 800 kb/s, 30 fps
+            """;
+
+        Assert.Equal((TimeSpan.FromSeconds(5), new PixelSize(1280, 720)), FfmpegArguments.ParseProbe(audioFirst));
+    }
+
+    [Fact]
+    public void ParseProbe_WithUnknownDuration_HasNoDuration()
+    {
+        var (duration, size) = FfmpegArguments.ParseProbe("  Duration: N/A, bitrate: N/A\n  Stream #0:0: Video: h264, yuv420p, 640x360, 30 fps");
+
+        Assert.Null(duration);
+        Assert.Equal(new PixelSize(640, 360), size);
+    }
+
+    [Fact]
+    public async Task Runner_ReportsANonZeroExitAsFfmpegException()
+    {
+        var cmd = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+
+        var ex = await Assert.ThrowsAsync<FfmpegException>(() =>
+            FfmpegRunner.RunAsync(cmd, ["/c", "echo broken input 1>&2 & exit 3"], cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("code 3", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("broken input", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Runner_AllowsFailureForProbes()
+    {
+        var cmd = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+
+        var output = await FfmpegRunner.RunAsync(cmd, ["/c", "echo Duration: 00:00:01.00 1>&2 & exit 1"], allowFailure: true, TestContext.Current.CancellationToken);
+
+        Assert.Contains("Duration", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Runner_ReportsAMissingExeAsFfmpegException()
+    {
+        await Assert.ThrowsAsync<FfmpegException>(() =>
+            FfmpegRunner.RunAsync(@"C:\nowhere\ffmpeg.exe", ["-version"], cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public void ParseProbe_OfGarbage_IsEmpty()
     {
         Assert.Equal((null, null), FfmpegArguments.ParseProbe("nothing useful"));
