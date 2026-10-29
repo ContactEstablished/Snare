@@ -247,7 +247,10 @@ public sealed partial class SqliteCaptureStore : ICaptureStore, ICaptureCatalog
         row.AnnotationJson = discardOriginal ? null : AnnotationJson.Serialize(document);
         row.OriginalPath = discardOriginal ? null : row.OriginalPath;
         row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
-        await db.SaveChangesAsync(cancellationToken);
+
+        // The image changed (perhaps a password was just redacted): forget the old text until it is read again.
+        row.OcrText = null;
+        await SaveAndReindexAsync(db, [id], cancellationToken);
 
         _logger.LogInformation(
             discardOriginal ? "Discarded the original of capture {Id}; {Path} is now its only copy" : "Re-exported capture {Id} to {Path}",
@@ -291,6 +294,7 @@ public sealed partial class SqliteCaptureStore : ICaptureStore, ICaptureCatalog
     public async Task MoveToTrashAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
         await using var db = new SnareDbContext(_dbOptions);
         var row = await db.Captures.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
         if (row is null || row.IsDeleted)

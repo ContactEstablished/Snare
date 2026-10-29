@@ -16,6 +16,7 @@ public sealed partial class CaptureDetailViewModel : ObservableObject
     private readonly Action<CaptureRecord> _updated;
     private string? _savedTitle;
     private string? _savedDescription;
+    private int _loadVersion;
 
     public CaptureDetailViewModel(CaptureRecord capture, ICaptureCatalog catalog, ILogger logger, Action<CaptureRecord> updated)
     {
@@ -38,6 +39,15 @@ public sealed partial class CaptureDetailViewModel : ObservableObject
     [ObservableProperty]
     public partial string NewTag { get; set; } = "";
 
+    /// <summary>Typing a comma adds what came before it, like Enter.</summary>
+    partial void OnNewTagChanged(string value)
+    {
+        if (value.TrimEnd().EndsWith(','))
+        {
+            AddTagCommand.Execute(null);
+        }
+    }
+
     public ObservableCollection<TagChipViewModel> Tags { get; } = [];
 
     /// <summary>Every existing tag name, for autocomplete.</summary>
@@ -59,10 +69,29 @@ public sealed partial class CaptureDetailViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        var tags = await _catalog.ListTagsAsync();
+        // Two loads can overlap (select, then add a tag quickly); only the newest may fill the lists.
+        var version = ++_loadVersion;
+        IReadOnlyList<TagInfo> tags;
+        IReadOnlyList<string> names;
+        try
+        {
+            tags = await _catalog.ListTagsAsync();
+            names = await _catalog.GetTagsAsync(Capture.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not load the tags of capture {Id}", Capture.Id);
+            return;
+        }
+
+        if (version != _loadVersion)
+        {
+            return;
+        }
+
         var colors = tags.ToDictionary(t => t.Name, t => t.Color, StringComparer.OrdinalIgnoreCase);
         Tags.Clear();
-        foreach (var name in await _catalog.GetTagsAsync(Capture.Id))
+        foreach (var name in names)
         {
             Tags.Add(new TagChipViewModel(name, colors.GetValueOrDefault(name, TagPalette.ForIndex(0))));
         }
@@ -83,11 +112,14 @@ public sealed partial class CaptureDetailViewModel : ObservableObject
             return;
         }
 
+        // Remember what is being saved, not what is in the box when the save finishes.
+        var title = Title;
+        var description = Description;
         try
         {
-            Capture = await _catalog.UpdateDetailsAsync(Capture.Id, Title, Description);
-            _savedTitle = Title;
-            _savedDescription = Description;
+            Capture = await _catalog.UpdateDetailsAsync(Capture.Id, title, description);
+            _savedTitle = title;
+            _savedDescription = description;
             _updated(Capture);
         }
         catch (Exception ex)

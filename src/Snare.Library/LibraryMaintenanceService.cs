@@ -41,15 +41,27 @@ public sealed class LibraryMaintenanceService : BackgroundService
         await Task.Yield();
         try
         {
-            await _store.ReconcileAsync(stoppingToken);
-            foreach (var id in await _store.ListAwaitingOcrAsync(stoppingToken))
+            // Separately: a failed reconcile must not also skip the OCR backfill.
+            try
             {
-                _queue.Enqueue(id);
+                await _store.ReconcileAsync(stoppingToken);
             }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(ex, "Library startup maintenance failed");
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Library reconciliation failed");
+            }
+
+            try
+            {
+                foreach (var id in await _store.ListAwaitingOcrAsync(stoppingToken))
+                {
+                    _queue.Enqueue(id);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Could not queue captures for OCR");
+            }
         }
         finally
         {

@@ -377,7 +377,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 - [ ] A test proves redacted areas of the export contain no original pixels
 - [ ] Discard original works and ends re-editing
 
-**Phase 3: Organize and search**
+**Phase 3: Organize and search** (code-complete Oct 29, 2026; manual checks in [task.md](phases/3-search/task.md))
 
 - [ ] Tags and descriptions editable in the detail pane and quick bar
 - [ ] OCR runs in the background and its text is searchable

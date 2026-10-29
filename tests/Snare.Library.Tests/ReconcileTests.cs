@@ -57,6 +57,25 @@ public class ReconcileTests
     }
 
     [Fact]
+    public async Task AFileDatedBefore1970_IsStillImported()
+    {
+        using var library = new TempLibrary();
+        await library.Store.ListAsync(Ct);
+        Directory.CreateDirectory(library.Paths.LibraryRoot);
+        var old = Path.Combine(library.Paths.LibraryRoot, "ancient.png");
+        using (var bitmap = PixelBufferImages.ToBitmap(PixelBuffer.Filled(4, 4, 0xFF000000)))
+        {
+            await File.WriteAllBytesAsync(old, ImageCodec.EncodePng(bitmap), Ct);
+        }
+
+        File.SetLastWriteTimeUtc(old, new DateTime(1960, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var result = await library.Store.ReconcileAsync(Ct);
+
+        Assert.Equal(1, result.Imported);
+    }
+
+    [Fact]
     public async Task UnknownImagesUnderTheLibrary_AreImportedOnce()
     {
         using var library = new TempLibrary();

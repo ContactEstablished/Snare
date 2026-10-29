@@ -57,7 +57,7 @@ public sealed partial class LibraryViewModel :
     public partial string SearchText { get; set; } = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Summary))]
+    [NotifyPropertyChangedFor(nameof(Summary), nameof(HasSingleSelection), nameof(HasMultipleSelection))]
     public partial bool ShowTrash { get; set; }
 
     [ObservableProperty]
@@ -70,9 +70,9 @@ public sealed partial class LibraryViewModel :
     [ObservableProperty]
     public partial string BulkTags { get; set; } = "";
 
-    public bool HasSingleSelection => Selected.Count == 1;
+    public bool HasSingleSelection => Selected.Count == 1 && !ShowTrash;
 
-    public bool HasMultipleSelection => Selected.Count > 1;
+    public bool HasMultipleSelection => Selected.Count > 1 && !ShowTrash;
 
     public string SelectionText => string.Create(CultureInfo.CurrentCulture, $"{Selected.Count} selected");
 
@@ -139,6 +139,8 @@ public sealed partial class LibraryViewModel :
     /// <summary>Called by the view when the grid's selection changes.</summary>
     public void UpdateSelection(IReadOnlyList<CaptureTileViewModel> selected)
     {
+        // Keep edits typed into the pane being replaced (F5, a new search, a new selection).
+        _ = Detail?.SaveDetailsAsync();
         Selected = selected;
         if (selected.Count == 1 && !ShowTrash)
         {
@@ -208,6 +210,7 @@ public sealed partial class LibraryViewModel :
 
     public void Detach()
     {
+        _ = Detail?.SaveDetailsAsync();
         _pendingSearch?.Cancel();
         WeakReferenceMessenger.Default.UnregisterAll(this);
     }

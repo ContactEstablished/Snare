@@ -10,7 +10,7 @@ See [spec.md](spec.md).
 - [x] Library: reconciliation (re-export, trash, import), plus tests
 - [x] App: Grab Text (`Ctrl+Alt+PrtSc` and the tray)
 - [x] App: library search box, detail pane, multi-select bulk actions, Trash view; quick bar tag box; plus view-model tests
-- [ ] Code review, merge, push
+- [x] Code review, merge, push
 
 ## Checked by the agent on Matt's PC (Oct 29, 2026)
 

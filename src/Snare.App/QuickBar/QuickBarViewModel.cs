@@ -30,6 +30,15 @@ public sealed partial class QuickBarViewModel(
     [ObservableProperty]
     public partial string TagText { get; set; } = "";
 
+    /// <summary>Typing a comma adds what came before it, like Enter.</summary>
+    partial void OnTagTextChanged(string value)
+    {
+        if (value.TrimEnd().EndsWith(','))
+        {
+            AddTagsCommand.Execute(null);
+        }
+    }
+
     /// <summary>Enter in the tag box: adds the tags (comma-separated) and keeps the bar open.</summary>
     [RelayCommand]
     private async Task AddTagsAsync()

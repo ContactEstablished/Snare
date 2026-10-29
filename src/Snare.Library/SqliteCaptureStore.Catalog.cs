@@ -89,13 +89,13 @@ public sealed partial class SqliteCaptureStore
     public async Task<CaptureRecord> UpdateDetailsAsync(Guid id, string? title, string? description, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
         await using var db = new SnareDbContext(_dbOptions);
         var row = await RequireAsync(db, id, cancellationToken);
         row.Title = Blank(title);
         row.Description = Blank(description);
         row.ModifiedUtc = _clock.GetUtcNow().UtcDateTime;
-        await db.SaveChangesAsync(cancellationToken);
-        await ReindexAsync(db, id, cancellationToken);
+        await SaveAndReindexAsync(db, [id], cancellationToken);
         return row.ToRecord();
     }
 
@@ -114,16 +114,18 @@ public sealed partial class SqliteCaptureStore
     {
         ArgumentNullException.ThrowIfNull(names);
         await EnsureInitializedAsync(cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
         await using var db = new SnareDbContext(_dbOptions);
         await RequireAsync(db, id, cancellationToken);
 
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var tags = await ResolveTagsAsync(db, names, cancellationToken);
         db.CaptureTags.RemoveRange(await db.CaptureTags.Where(ct => ct.CaptureId == id).ToListAsync(cancellationToken));
         db.CaptureTags.AddRange(tags.Select(t => new CaptureTagEntity { CaptureId = id, TagId = t.Id }));
         await db.SaveChangesAsync(cancellationToken);
-
         await RemoveUnusedTagsAsync(db, cancellationToken);
         await ReindexAsync(db, id, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task AddTagsAsync(IEnumerable<Guid> ids, IEnumerable<string> names, CancellationToken cancellationToken = default)
@@ -131,6 +133,7 @@ public sealed partial class SqliteCaptureStore
         ArgumentNullException.ThrowIfNull(ids);
         ArgumentNullException.ThrowIfNull(names);
         await EnsureInitializedAsync(cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
         await using var db = new SnareDbContext(_dbOptions);
 
         var tags = await ResolveTagsAsync(db, names, cancellationToken);
@@ -141,11 +144,7 @@ public sealed partial class SqliteCaptureStore
             db.CaptureTags.AddRange(tags.Where(t => !existing.Contains(t.Id)).Select(t => new CaptureTagEntity { CaptureId = id, TagId = t.Id }));
         }
 
-        await db.SaveChangesAsync(cancellationToken);
-        foreach (var id in targets)
-        {
-            await ReindexAsync(db, id, cancellationToken);
-        }
+        await SaveAndReindexAsync(db, targets, cancellationToken);
     }
 
     public async Task<IReadOnlyList<TagInfo>> ListTagsAsync(CancellationToken cancellationToken = default)
@@ -170,6 +169,7 @@ public sealed partial class SqliteCaptureStore
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(color);
         await EnsureInitializedAsync(cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
         await using var db = new SnareDbContext(_dbOptions);
         var tag = await db.Tags.FirstOrDefaultAsync(t => t.Name == name.Trim(), cancellationToken)
             ?? throw new KeyNotFoundException($"No tag '{name}'.");
@@ -181,6 +181,7 @@ public sealed partial class SqliteCaptureStore
     {
         ArgumentNullException.ThrowIfNull(text);
         await EnsureInitializedAsync(cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
         await using var db = new SnareDbContext(_dbOptions);
         var row = await db.Captures.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
         if (row is null)
@@ -189,8 +190,7 @@ public sealed partial class SqliteCaptureStore
         }
 
         row.OcrText = text;
-        await db.SaveChangesAsync(cancellationToken);
-        await ReindexAsync(db, id, cancellationToken);
+        await SaveAndReindexAsync(db, [id], cancellationToken);
     }
 
     public async Task<IReadOnlyList<Guid>> ListAwaitingOcrAsync(CancellationToken cancellationToken = default)
@@ -218,6 +218,7 @@ public sealed partial class SqliteCaptureStore
     public async Task RestoreAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(cancellationToken);
+        using var gate = await WriteGateAsync(cancellationToken);
         await using var db = new SnareDbContext(_dbOptions);
         var row = await RequireAsync(db, id, cancellationToken);
         row.IsDeleted = false;
@@ -265,6 +266,42 @@ public sealed partial class SqliteCaptureStore
         finally
         {
             _save.Release();
+        }
+    }
+
+    /// <summary>
+    /// One writer at a time, in-process. The background OCR writer and the UI otherwise collide
+    /// in SQLite ("database is locked"), and tag creation races on the unique name.
+    /// </summary>
+    private async Task<IDisposable> WriteGateAsync(CancellationToken cancellationToken)
+    {
+        await _save.WaitAsync(cancellationToken);
+        return new GateRelease(_save);
+    }
+
+    /// <summary>Saves the row changes and rewrites the full-text rows in one transaction, so they can't drift apart.</summary>
+    private static async Task SaveAndReindexAsync(SnareDbContext db, IEnumerable<Guid> ids, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        foreach (var id in ids)
+        {
+            await ReindexAsync(db, id, cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private sealed class GateRelease(SemaphoreSlim gate) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                gate.Release();
+            }
         }
     }
 

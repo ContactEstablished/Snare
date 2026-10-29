@@ -47,7 +47,7 @@ Every capture can carry a title, a description and flat tags. Windows OCR reads 
 - **`WindowsOcrEngine : IOcrEngine`:**
   - Uses `Windows.Media.Ocr` with the user-profile language (English).
   - Images taller or wider than `OcrEngine.MaxImageDimension` are processed in overlapping tiles, and the lines are joined with duplicate lines at tile seams removed.
-- **`OcrQueue`:** a `Channel<Guid>` consumed by `OcrIndexingService`, a hosted `BackgroundService`.
+- **`OcrQueue`:** a `Channel<Guid>` consumed by `LibraryMaintenanceService`, a hosted `BackgroundService` that also runs reconciliation.
   - New image captures and re-exports are queued.
   - On startup, every image capture whose `OcrText` is null is queued.
   - Each item OCRs the export (what Matt sees, including annotations), then calls `SetOcrTextAsync`. Failures are logged and skipped, so a single bad image can't stop the queue.
@@ -55,7 +55,7 @@ Every capture can carry a title, a description and flat tags. Windows OCR reads 
 
 ## Reconciliation (Library)
 
-`LibraryReconciler` runs once at startup, as a hosted service, before OCR backfill. It handles three cases:
+`SqliteCaptureStore.ReconcileAsync` runs once at startup, from `LibraryMaintenanceService`, before OCR backfill. All catalog writes share one in-process write gate, and saving and reindexing happen in one transaction. It handles three cases:
 
 - **Export missing, original present:** re-export from the original and annotations.
 - **Export and original both missing:** the row moves to the Trash, logged as "missing on disk".

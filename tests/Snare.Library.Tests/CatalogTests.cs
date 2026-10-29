@@ -205,6 +205,76 @@ public class CatalogTests
     }
 
     [Fact]
+    public async Task ConcurrentBackgroundAndUiWrites_AllSucceed()
+    {
+        using var library = new TempLibrary();
+        var captures = new List<CaptureRecord>();
+        for (var i = 0; i < 6; i++)
+        {
+            captures.Add(await Save(library, "chrome", $"C{i}", Oct28.AddMinutes(i)));
+        }
+
+        // OCR writes on one capture while titles, tags and new saves hit others at the same time.
+        var work = new List<Task>();
+        for (var round = 0; round < 25; round++)
+        {
+            var r = round;
+            work.Add(Task.Run(() => library.Store.SetOcrTextAsync(captures[0].Id, $"text {r}", Ct), Ct));
+            work.Add(Task.Run(() => library.Store.UpdateDetailsAsync(captures[1 + (r % 5)].Id, $"title {r}", null, Ct), Ct));
+            work.Add(Task.Run(() => library.Store.AddTagsAsync([captures[1 + (r % 5)].Id], [$"t{r % 3}"], Ct), Ct));
+        }
+
+        work.Add(Task.Run(() => library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), CaptureSource.Unknown, Oct28.AddHours(1), Ct), Ct));
+
+        await Task.WhenAll(work); // no "database is locked", no unique-constraint failures
+
+        Assert.Equal(7, (await library.Store.ListAsync(Ct)).Count);
+        Assert.Equal(3, (await library.Store.ListTagsAsync(Ct)).Count);
+    }
+
+    [Fact]
+    public async Task CreatingTheSameNewTagConcurrently_MakesOneTag()
+    {
+        using var library = new TempLibrary();
+        var a = await Save(library, "chrome", "A");
+
+        await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => Task.Run(() => library.Store.SetTagsAsync(a.Id, ["brandnew"], Ct), Ct)));
+
+        Assert.Single(await library.Store.ListTagsAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Reexport_ForgetsTheOldText_UntilItIsReadAgain()
+    {
+        using var library = new TempLibrary();
+        var a = await Save(library, "chrome", "A", Oct28, ocr: "secret password 1234");
+        Assert.Equal([a.Id], await Find(library, "secret"));
+
+        await library.Store.ReexportAsync(a.Id, new Snare.Core.Annotations.AnnotationDocument { Canvas = new(4, 4) }, Ct);
+
+        Assert.Empty(await Find(library, "secret"));
+        Assert.Contains(a.Id, await library.Store.ListAwaitingOcrAsync(Ct));
+    }
+
+    [Theory]
+    [InlineData("-")]
+    [InlineData("*")]
+    [InlineData("NEAR")]
+    [InlineData("a OR b")]
+    [InlineData("(x")]
+    [InlineData("foo\"bar")]
+    [InlineData("日本語")]
+    public async Task OddSearchInput_NeverThrows(string text)
+    {
+        using var library = new TempLibrary();
+        await Save(library, "chrome", "Something");
+
+        var results = await library.Store.SearchAsync(SearchQueryParser.Parse(text), Ct);
+
+        Assert.NotNull(results);
+    }
+
+    [Fact]
     public async Task UpgradingAPhaseOneDatabase_BackfillsTheSearchIndex()
     {
         using var library = new TempLibrary();

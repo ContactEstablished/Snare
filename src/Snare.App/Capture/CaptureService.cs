@@ -76,7 +76,6 @@ public sealed class CaptureService(
         }
     }
 
-    /// <summary>Ctrl+PrtSc: the previous region again, with no overlay. Falls back to a normal capture.</summary>
     /// <summary>Ctrl+Alt+PrtSc: select a region, read its text, put the text on the clipboard. Nothing is saved.</summary>
     public async Task GrabTextAsync()
     {
@@ -120,6 +119,7 @@ public sealed class CaptureService(
         }
     }
 
+    /// <summary>Ctrl+PrtSc: the previous region again, with no overlay. Falls back to a normal capture.</summary>
     public async Task RepeatLastRegionAsync()
     {
         if (_lastRegion is not { } region)

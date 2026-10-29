@@ -40,8 +40,9 @@ public sealed partial class SqliteCaptureStore
                     await ReexportAsync(row.Id, DocumentFor(row), cancellationToken);
                     reexported++;
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    // One bad capture must not stop the rest of startup repair.
                     _logger.LogWarning(ex, "Could not re-export missing capture {Id} to {Path}", row.Id, row.FilePath);
                 }
             }
@@ -72,8 +73,10 @@ public sealed partial class SqliteCaptureStore
         }
 
         var known = new HashSet<string>(rows.Select(r => Path.GetFullPath(r.FilePath)), StringComparer.OrdinalIgnoreCase);
+        // Skip folders Snare can't read instead of failing the whole scan.
+        var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
         var candidates = Directory
-            .EnumerateFiles(_paths.LibraryRoot, "*", SearchOption.AllDirectories)
+            .EnumerateFiles(_paths.LibraryRoot, "*", options)
             .Where(p => ImageExtensions.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase))
             .Where(p => !known.Contains(Path.GetFullPath(p)));
 
@@ -87,9 +90,16 @@ public sealed partial class SqliteCaptureStore
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            if (await ImportAsync(path, cancellationToken))
+            try
             {
-                imported++;
+                if (await ImportAsync(path, cancellationToken))
+                {
+                    imported++;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Skipping {Path}: it could not be imported", path);
             }
         }
 
@@ -104,16 +114,33 @@ public sealed partial class SqliteCaptureStore
         {
             bitmap = ImageCodec.Decode(await File.ReadAllBytesAsync(path, cancellationToken));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Skipping {Path}: it isn't a readable image", path);
             return false;
         }
 
+        // Version 7 GUIDs can't encode times before 1970 (some copied files claim 1601).
         var created = File.GetLastWriteTimeUtc(path);
-        var id = Guid.CreateVersion7(new DateTimeOffset(created, TimeSpan.Zero));
-        using (bitmap)
+        if (created < DateTime.UnixEpoch)
         {
+            created = DateTime.UnixEpoch;
+        }
+
+        var id = Guid.CreateVersion7(new DateTimeOffset(created, TimeSpan.Zero));
+        var fullPath = Path.GetFullPath(path);
+        using (bitmap)
+        using (await WriteGateAsync(cancellationToken))
+        {
+            // A capture saved while the scan ran may already own this file.
+            await using (var check = new SnareDbContext(_dbOptions))
+            {
+                if (await check.Captures.AnyAsync(c => c.FilePath == fullPath, cancellationToken))
+                {
+                    return false;
+                }
+            }
+
             var originalPath = _paths.OriginalPathFor(id);
             await WriteNewFileAsync(originalPath, ImageCodec.EncodePng(bitmap), cancellationToken);
             await WriteFileAsync(_paths.ThumbnailPathFor(id), ImageCodec.EncodeThumbnail(bitmap), cancellationToken);
@@ -123,7 +150,7 @@ public sealed partial class SqliteCaptureStore
             {
                 Id = id,
                 Kind = CaptureKind.Image,
-                FilePath = Path.GetFullPath(path),
+                FilePath = fullPath,
                 OriginalPath = originalPath,
                 Width = bitmap.Width,
                 Height = bitmap.Height,
@@ -132,8 +159,7 @@ public sealed partial class SqliteCaptureStore
                 SourceApp = "imported",
                 Title = Path.GetFileNameWithoutExtension(path),
             });
-            await db.SaveChangesAsync(cancellationToken);
-            await ReindexAsync(db, id, cancellationToken);
+            await SaveAndReindexAsync(db, [id], cancellationToken);
         }
 
         _logger.LogInformation("Imported {Path}", path);
