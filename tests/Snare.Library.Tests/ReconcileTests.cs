@@ -16,7 +16,7 @@ public class ReconcileTests
     public async Task NothingChanged_ReportsNothing()
     {
         using var library = new TempLibrary();
-        await library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), CaptureSource.Unknown, At, Ct);
+        await library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), CaptureSource.Unknown, At, cancellationToken: Ct);
 
         var result = await library.Store.ReconcileAsync(Ct);
 
@@ -27,7 +27,7 @@ public class ReconcileTests
     public async Task MissingExport_IsReexportedFromTheOriginalWithItsAnnotations()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(20, 20, 0xFFFFFFFF), CaptureSource.Unknown, At, Ct);
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(20, 20, 0xFFFFFFFF), CaptureSource.Unknown, At, cancellationToken: Ct);
         await library.Store.SaveAnnotationsAsync(record.Id, new AnnotationDocument
         {
             Canvas = new CanvasInfo(20, 20),
@@ -46,7 +46,7 @@ public class ReconcileTests
     public async Task MissingExportAndOriginal_MovesToTheTrash()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), CaptureSource.Unknown, At, Ct);
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), CaptureSource.Unknown, At, cancellationToken: Ct);
         File.Delete(record.FilePath);
         File.Delete(record.OriginalPath!);
 

@@ -1,0 +1,117 @@
+{
+  "source": "tools/scroll-fixture/page.html in headless Edge",
+  "width": 640,
+  "height": 480,
+  "header": 56,
+  "footer": 32,
+  "frames": [
+    {
+      "file": "frame-00.png",
+      "scrollY": 0
+    },
+    {
+      "file": "frame-01.png",
+      "scrollY": 90
+    },
+    {
+      "file": "frame-02.png",
+      "scrollY": 250
+    },
+    {
+      "file": "frame-03.png",
+      "scrollY": 250
+    },
+    {
+      "file": "frame-04.png",
+      "scrollY": 410
+    },
+    {
+      "file": "frame-05.png",
+      "scrollY": 330
+    },
+    {
+      "file": "frame-06.png",
+      "scrollY": 410
+    },
+    {
+      "file": "frame-07.png",
+      "scrollY": 600
+    },
+    {
+      "file": "frame-08.png",
+      "scrollY": 760
+    },
+    {
+      "file": "frame-09.png",
+      "scrollY": 980
+    },
+    {
+      "file": "frame-10.png",
+      "scrollY": 1150
+    },
+    {
+      "file": "frame-11.png",
+      "scrollY": 1320
+    },
+    {
+      "file": "frame-12.png",
+      "scrollY": 1500
+    },
+    {
+      "file": "frame-13.png",
+      "scrollY": 1700
+    },
+    {
+      "file": "frame-14.png",
+      "scrollY": 1880
+    },
+    {
+      "file": "frame-15.png",
+      "scrollY": 2050
+    },
+    {
+      "file": "frame-16.png",
+      "scrollY": 2240
+    },
+    {
+      "file": "frame-17.png",
+      "scrollY": 2420
+    },
+    {
+      "file": "frame-18.png",
+      "scrollY": 2600
+    },
+    {
+      "file": "frame-19.png",
+      "scrollY": 2880
+    },
+    {
+      "file": "frame-20.png",
+      "scrollY": 3160
+    },
+    {
+      "file": "frame-21.png",
+      "scrollY": 3440
+    },
+    {
+      "file": "frame-22.png",
+      "scrollY": 3720
+    },
+    {
+      "file": "frame-23.png",
+      "scrollY": 4000
+    },
+    {
+      "file": "frame-24.png",
+      "scrollY": 4280
+    },
+    {
+      "file": "frame-25.png",
+      "scrollY": 4560
+    },
+    {
+      "file": "frame-26.png",
+      "scrollY": 4780
+    }
+  ]
+}

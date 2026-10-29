@@ -36,8 +36,14 @@ internal sealed class TempLibrary : IDisposable
 
     public void Dispose()
     {
-        // Pooled connections keep library.db open.
-        SqliteConnection.ClearAllPools();
+        // Pooled connections keep library.db open. Only this library's pools: ClearAllPools would
+        // also dispose connections that tests running in parallel are using.
+        foreach (var connectionString in new[] { $"Data Source={Paths.DatabasePath}", new SqliteConnectionStringBuilder { DataSource = Paths.DatabasePath }.ToString() })
+        {
+            using var connection = new SqliteConnection(connectionString);
+            SqliteConnection.ClearPool(connection);
+        }
+
         _root.Delete(recursive: true);
     }
 

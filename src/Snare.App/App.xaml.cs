@@ -8,6 +8,7 @@ using Snare.App.Editor;
 using Snare.App.Infrastructure;
 using Snare.App.Library;
 using Snare.App.Recording;
+using Snare.App.Scrolling;
 using Snare.App.Video;
 using Snare.App.Services;
 using Snare.App.Spikes;
@@ -58,6 +59,7 @@ public partial class App : Application
         builder.Services.AddSingleton<EditorStyleStore>();
         builder.Services.AddSingleton<RecordingSettingsStore>();
         builder.Services.AddSingleton<RecordingService>();
+        builder.Services.AddSingleton<ScrollCaptureService>();
         builder.Services.AddSingleton<VideoPlayerService>();
         builder.Services.AddSingleton<FreezeOverlaySpike>();
         builder.Services.AddSingleton<SkiaCanvasSpike>();

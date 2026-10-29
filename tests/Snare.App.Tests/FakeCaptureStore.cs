@@ -24,7 +24,7 @@ internal sealed class FakeCaptureStore : ICaptureStore, ICaptureCatalog
         SourceApp = "chrome",
     };
 
-    public Task<CaptureRecord> SaveImageAsync(PixelBuffer image, CaptureSource source, DateTimeOffset capturedAt, CancellationToken cancellationToken = default) =>
+    public Task<CaptureRecord> SaveImageAsync(PixelBuffer image, CaptureSource source, DateTimeOffset capturedAt, CaptureKind kind = CaptureKind.Image, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 
     public Task<IReadOnlyList<CaptureRecord>> ListAsync(CancellationToken cancellationToken = default) =>

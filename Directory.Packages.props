@@ -35,12 +35,9 @@
   <ItemGroup Label="Video">
     <!-- Native C++/CLI; the solution builds x64 only because of it (see Directory.Build.props). -->
     <PackageVersion Include="ScreenRecorderLib" Version="7.0.1" />
+    <PackageVersion Include="OpenCvSharp4" Version="4.13.0.20260627" />
+    <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260627" />
   </ItemGroup>
-
-  <!--
-    Added later, by the phase that needs them:
-      OpenCvSharp4 + OpenCvSharp4.runtime.win  (Phase 5 scrolling capture)
-  -->
 
   <ItemGroup Label="Tests">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />

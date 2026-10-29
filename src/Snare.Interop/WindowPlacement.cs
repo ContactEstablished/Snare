@@ -21,6 +21,16 @@ public static class WindowPlacement
         PInvoke.SetWindowPos((HWND)windowHandle, TopMost, x, y, 0, 0,
             SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE);
 
+    /// <summary>
+    /// Stops clicks on a window from activating it (WS_EX_NOACTIVATE), so a floating panel's
+    /// buttons don't take keyboard focus away from the app Matt is working in.
+    /// </summary>
+    public static void MakeNoActivate(nint windowHandle)
+    {
+        var style = PInvoke.GetWindowLongPtr((HWND)windowHandle, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+        PInvoke.SetWindowLongPtr((HWND)windowHandle, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, style | (nint)WINDOW_EX_STYLE.WS_EX_NOACTIVATE);
+    }
+
     /// <summary>The cursor position in physical virtual-desktop pixels.</summary>
     public static (int X, int Y) GetCursorPosition() =>
         PInvoke.GetCursorPos(out var point) ? (point.X, point.Y) : (0, 0);

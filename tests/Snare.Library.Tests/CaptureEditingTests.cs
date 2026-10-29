@@ -27,7 +27,7 @@ public class CaptureEditingTests
     public async Task LoadOriginal_ReturnsTheCapturedPixels()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
 
         var original = await library.Store.LoadOriginalAsync(record.Id, Ct);
 
@@ -39,7 +39,7 @@ public class CaptureEditingTests
     public async Task SaveAnnotations_StoresJsonWithoutTouchingTheExport()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
         var exportBefore = await File.ReadAllBytesAsync(record.FilePath, Ct);
 
         await library.Store.SaveAnnotationsAsync(record.Id, Redacted(), Ct);
@@ -53,7 +53,7 @@ public class CaptureEditingTests
     public async Task Reexport_OverwritesTheExportInPlace_AndKeepsTheOriginal()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
 
         var updated = await library.Store.ReexportAsync(record.Id, Redacted(), Ct);
 
@@ -70,7 +70,7 @@ public class CaptureEditingTests
     public async Task Reexport_WithCropAndResize_UpdatesTheSize()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
 
         var updated = await library.Store.ReexportAsync(
             record.Id, Redacted(new CanvasInfo(40, 30, new PixelRect(0, 0, 20, 20), new PixelSize(10, 10))), Ct);
@@ -84,7 +84,7 @@ public class CaptureEditingTests
     public async Task DiscardOriginal_LeavesNoSecretPixelsAnywhere()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
 
         var discarded = await library.Store.DiscardOriginalAsync(record.Id, Redacted(), Ct);
 
@@ -109,7 +109,7 @@ public class CaptureEditingTests
     public async Task DiscardOriginal_WhenTheDeleteFails_CanBeRetried()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
 
         // An open handle without delete sharing makes File.Delete fail, like an indexer lock.
         await using (new FileStream(record.OriginalPath!, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -128,7 +128,7 @@ public class CaptureEditingTests
     public async Task DiscardOriginal_FinishesWhenOnlyTheRowUpdateWasLost()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
         await library.Store.ReexportAsync(record.Id, Redacted(), Ct);
         File.Delete(record.OriginalPath!); // as if a previous discard crashed after deleting
 
@@ -141,7 +141,7 @@ public class CaptureEditingTests
     public async Task MissingOriginal_IsNotSilentlyReplacedByTheExport()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
         File.Delete(record.OriginalPath!);
 
         await Assert.ThrowsAsync<FileNotFoundException>(() => library.Store.LoadOriginalAsync(record.Id, Ct));
@@ -152,7 +152,7 @@ public class CaptureEditingTests
     public async Task SaveAnnotations_AfterADiscard_IsIgnored()
     {
         using var library = new TempLibrary();
-        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, Ct);
+        var record = await library.Store.SaveImageAsync(Image(), Source, CapturedAt, cancellationToken: Ct);
         await library.Store.DiscardOriginalAsync(record.Id, Redacted(), Ct);
 
         await library.Store.SaveAnnotationsAsync(record.Id, Redacted(), Ct);

@@ -10,4 +10,9 @@
     <ProjectReference Include="..\..\src\Snare.Capture\Snare.Capture.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Recorded scrolling sequences; re-record with tools/scroll-fixture/record.mjs. -->
+    <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -15,7 +15,7 @@ public class CatalogTests
 
     private static async Task<CaptureRecord> Save(TempLibrary library, string app, string? title, DateTimeOffset at, string? ocr)
     {
-        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), new CaptureSource(app, $"{app} window"), at, Ct);
+        var record = await library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), new CaptureSource(app, $"{app} window"), at, cancellationToken: Ct);
         if (title is not null)
         {
             record = await library.Store.UpdateDetailsAsync(record.Id, title, null, Ct);
@@ -224,7 +224,7 @@ public class CatalogTests
             work.Add(Task.Run(() => library.Store.AddTagsAsync([captures[1 + (r % 5)].Id], [$"t{r % 3}"], Ct), Ct));
         }
 
-        work.Add(Task.Run(() => library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), CaptureSource.Unknown, Oct28.AddHours(1), Ct), Ct));
+        work.Add(Task.Run(() => library.Store.SaveImageAsync(PixelBuffer.Filled(4, 4, 0xFF000000), CaptureSource.Unknown, Oct28.AddHours(1), cancellationToken: Ct), Ct));
 
         await Task.WhenAll(work); // no "database is locked", no unique-constraint failures
 

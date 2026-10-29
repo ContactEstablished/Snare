@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Snare scrolling fixture</title>
+<style>
+  html { scroll-behavior: auto; }
+  body { margin: 0; font: 15px/1.5 "Segoe UI", sans-serif; color: #222; background: #fff; }
+  header { position: sticky; top: 0; height: 56px; background: #1e5aa8; color: #fff; display: flex; align-items: center; gap: 24px; padding: 0 20px; z-index: 2; }
+  header b { font-size: 18px; }
+  footer { position: fixed; bottom: 0; left: 0; right: 0; height: 32px; background: #333; color: #ddd; display: flex; align-items: center; padding: 0 20px; font-size: 13px; }
+  main { padding: 8px 28px 60px; }
+  h2 { margin: 28px 0 8px; font-size: 20px; }
+  pre { background: #f4f4f4; padding: 10px; font: 13px/1.4 Consolas, monospace; }
+  .figure { height: 120px; margin: 12px 0; border-radius: 6px; }
+  table { border-collapse: collapse; margin: 12px 0; }
+  td, th { border: 1px solid #ccc; padding: 4px 10px; }
+</style>
+</head>
+<body>
+<header><b>Snare Docs</b><span>Guides</span><span>Reference</span><span>Changelog</span></header>
+<main id="main"></main>
+<footer>Fixture page for Snare scrolling-capture tests</footer>
+<script>
+  // Deterministic, non-repeating text so no two lines look alike.
+  let seed = 12345;
+  const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const words = "capture stitch frame offset sticky header footer library search editor arrow redact blur pixel monitor region window scroll page match template strip confidence preview height limit export thumbnail recording webcam audio trim keyframe gesture undo canvas render golden image tolerance".split(" ");
+  const sentence = () => {
+    const n = 6 + Math.floor(rand() * 12);
+    const s = Array.from({ length: n }, () => words[Math.floor(rand() * words.length)]).join(" ");
+    return s[0].toUpperCase() + s.slice(1) + (rand() < 0.2 ? " (" + Math.floor(rand() * 9000 + 1000) + ")" : "") + ".";
+  };
+  const main = document.getElementById("main");
+  let html = "";
+  for (let section = 1; section <= 9; section++) {
+    html += `<h2>${section}. ${sentence().slice(0, 40)}</h2>`;
+    for (let p = 0; p < 3; p++) html += `<p>${Array.from({ length: 3 + Math.floor(rand() * 3) }, sentence).join(" ")}</p>`;
+    if (section % 3 === 1) {
+      const hue = Math.floor(rand() * 360);
+      html += `<div class="figure" style="background: linear-gradient(${Math.floor(rand() * 180)}deg, hsl(${hue} 60% 55%), hsl(${(hue + 90) % 360} 60% 75%))"></div>`;
+    }
+    if (section % 3 === 2) {
+      html += "<pre>" + Array.from({ length: 6 }, (_, i) => `var line${section}_${i} = Stitch(frame[${Math.floor(rand() * 99)}], offset: ${Math.floor(rand() * 400)});`).join("\n") + "</pre>";
+    }
+    if (section % 3 === 0) {
+      html += "<table><tr><th>Name</th><th>Offset</th><th>Confidence</th></tr>" +
+        Array.from({ length: 5 }, () => `<tr><td>${words[Math.floor(rand() * words.length)]}</td><td>${Math.floor(rand() * 500)}</td><td>${rand().toFixed(3)}</td></tr>`).join("") + "</table>";
+    }
+  }
+  main.innerHTML = html;
+</script>
+</body>
+</html>
