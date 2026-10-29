@@ -46,6 +46,7 @@ public partial class App : Application
         builder.Services.AddSingleton<HotkeyService>();
         builder.Services.AddSingleton<ShellService>();
         builder.Services.AddSingleton<FreezeOverlaySpike>();
+        builder.Services.AddSingleton<SkiaCanvasSpike>();
 
         _host = builder.Build();
         _host.Start();
