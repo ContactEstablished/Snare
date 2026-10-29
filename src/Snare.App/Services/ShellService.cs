@@ -3,6 +3,7 @@ using Snare.App.Capture;
 using Snare.App.Library;
 using Snare.App.Spikes;
 using Snare.Core.Hotkeys;
+using Snare.Interop;
 
 namespace Snare.App.Services;
 
@@ -30,9 +31,21 @@ public sealed class ShellService(
         tray.AddSpike("Record 22 s test (mic, system audio, webcam)", recordingSpike.Run);
         freezeOverlay.CanvasRequested += (_, desktop) => skiaCanvas.RunWithDesktop(desktop);
 
+        WarnIfHdr();
+
         hotkeys.Pressed += OnHotkeyPressed;
         hotkeys.Start();
         tray.ShowHotkeyConflicts(hotkeys.Conflicts);
+    }
+
+    // HDR makes GDI grabs look washed out (build plan: Monitors and DPI). Decided: warn, don't block.
+    private void WarnIfHdr()
+    {
+        var hdr = AdvancedColor.CountHdrDisplays();
+        if (hdr > 0)
+        {
+            logger.LogWarning("{Count} display(s) have HDR on; captures from them may look washed out", hdr);
+        }
     }
 
     private void OnHotkeyPressed(object? sender, HotkeyAction action)
