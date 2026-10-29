@@ -34,12 +34,15 @@
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.InputBindings>
                 <KeyBinding Key="Delete" Command="{Binding TrashCommand}" CommandParameter="{Binding SelectedItem, ElementName=Grid}" />
-                <KeyBinding Key="Enter" Command="{Binding OpenCommand}" CommandParameter="{Binding SelectedItem, ElementName=Grid}" />
+                <KeyBinding Key="Enter" Command="{Binding EditCommand}" CommandParameter="{Binding SelectedItem, ElementName=Grid}" />
                 <KeyBinding Key="C" Modifiers="Control" Command="{Binding CopyCommand}" CommandParameter="{Binding SelectedItem, ElementName=Grid}" />
             </ListBox.InputBindings>
             <ListBox.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="Open"
+                    <MenuItem Header="Edit" InputGestureText="Enter"
+                              Command="{Binding PlacementTarget.DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                    <MenuItem Header="Open in default app"
                               Command="{Binding PlacementTarget.DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                     <MenuItem Header="Copy" InputGestureText="Ctrl+C"
@@ -87,7 +90,7 @@
                     <StackPanel Width="320" ToolTip="{Binding ToolTip}" Background="Transparent">
                         <StackPanel.InputBindings>
                             <MouseBinding MouseAction="LeftDoubleClick"
-                                          Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                          Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                           CommandParameter="{Binding}" />
                         </StackPanel.InputBindings>
                         <Border Width="320" Height="240" Background="#FF141414">

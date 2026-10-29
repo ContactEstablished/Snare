@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Snare.App.Editor;
 using Snare.App.Messages;
 using Snare.App.QuickBar;
 using Snare.App.Services;
@@ -23,6 +24,7 @@ public sealed class CaptureService(
     CaptureOverlay overlay,
     ICaptureStore store,
     ClipboardService clipboard,
+    EditorService editor,
     TrayIconService tray,
     IOptionsMonitor<SnareOptions> options,
     IServiceProvider services,
@@ -150,7 +152,14 @@ public sealed class CaptureService(
         }
 
         WeakReferenceMessenger.Default.Send(new CaptureSavedMessage(record));
-        ShowQuickBar(record, selection.Rect, desktop);
+        if (options.CurrentValue.AfterCapture == AfterCaptureAction.Editor)
+        {
+            await editor.OpenAsync(record.Id);
+        }
+        else
+        {
+            ShowQuickBar(record, selection.Rect, desktop);
+        }
     }
 
     /// <summary>Freezes the screen, closing the previous quick bar first so it can't be in the shot.</summary>

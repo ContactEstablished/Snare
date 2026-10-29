@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Snare.App.Capture;
+using Snare.App.Editor;
 using Snare.App.Library;
 using Snare.App.Messages;
 using Snare.App.QuickBar;
@@ -19,6 +20,9 @@ namespace Snare.App.Tests;
 /// <summary>Constructs and renders windows off-screen: catches XAML, binding-setup and OnRender errors.</summary>
 public class WindowSmokeTests
 {
+    private static EditorService Editors(ICaptureStore store) => new(
+        store, new TrayIconService(NullLogger<TrayIconService>.Instance), new ServiceCollection().BuildServiceProvider(), NullLogger<EditorService>.Instance);
+
     private static FrozenDesktop Desktop()
     {
         var bounds = new PixelRect(0, 0, 400, 200);
@@ -35,7 +39,7 @@ public class WindowSmokeTests
         Sta.Run(() =>
         {
             var store = new FakeCaptureStore();
-            var viewModel = new LibraryViewModel(store, new ClipboardService(NullLogger<ClipboardService>.Instance), NullLogger<LibraryViewModel>.Instance);
+            var viewModel = new LibraryViewModel(store, new ClipboardService(NullLogger<ClipboardService>.Instance), Editors(store), NullLogger<LibraryViewModel>.Instance);
 
             var window = new LibraryWindow(viewModel);
 
@@ -51,7 +55,7 @@ public class WindowSmokeTests
         {
             var store = new FakeCaptureStore();
             store.Captures.AddRange([FakeCaptureStore.Record(1), FakeCaptureStore.Record(2)]);
-            var viewModel = new LibraryViewModel(store, new ClipboardService(NullLogger<ClipboardService>.Instance), NullLogger<LibraryViewModel>.Instance);
+            var viewModel = new LibraryViewModel(store, new ClipboardService(NullLogger<ClipboardService>.Instance), Editors(store), NullLogger<LibraryViewModel>.Instance);
 
             viewModel.LoadAsync().GetAwaiter().GetResult();
             Assert.Equal([2, 1], viewModel.Tiles.Select(t => t.Capture.CreatedUtc.Minute));
@@ -79,6 +83,7 @@ public class WindowSmokeTests
                 new ClipboardService(NullLogger<ClipboardService>.Instance),
                 new FakeCaptureStore(),
                 new LibraryWindowService(services),
+                Editors(new FakeCaptureStore()),
                 NullLogger.Instance);
             var bounds = new PixelRect(0, 0, 1920, 1080);
 

@@ -368,7 +368,7 @@ Seven phases, each usable on its own. Phases run back to back without stopping f
 - [ ] Library grid shows thumbnails, newest first
 - [ ] `tools/publish.ps1` publishes a self-contained build
 
-**Phase 2: Editor**
+**Phase 2: Editor** (code-complete Oct 29, 2026; manual checks in [task.md](phases/2-editor/task.md))
 
 - [ ] Every Must tool, plus Line, Step numbers and Eyedropper, works on new and reopened captures
 - [ ] Undo and redo work for every tool

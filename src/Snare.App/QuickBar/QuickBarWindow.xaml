@@ -43,6 +43,7 @@
                     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                     mc:Ignorable="d">
             <TextBlock Text="{Binding Summary, Mode=OneTime}" Foreground="#BBFFFFFF" VerticalAlignment="Center" Margin="8,0,10,0" />
+            <Button Content="Edit" Command="{Binding EditCommand}" ToolTip="Open in the editor" />
             <Button Content="Copy" Command="{Binding CopyCommand}" ToolTip="Copy again" />
             <Button Content="Show in folder" Command="{Binding RevealCommand}" />
             <Button Content="Library" Command="{Binding OpenLibraryCommand}" />

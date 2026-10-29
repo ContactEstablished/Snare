@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Snare.App.Capture;
+using Snare.App.Editor;
 using Snare.App.Infrastructure;
 using Snare.App.Library;
 using Snare.App.Services;
@@ -51,6 +52,8 @@ public partial class App : Application
         builder.Services.AddSingleton<CaptureOverlay>();
         builder.Services.AddSingleton<CaptureService>();
         builder.Services.AddSingleton<LibraryWindowService>();
+        builder.Services.AddSingleton<EditorService>();
+        builder.Services.AddSingleton<EditorStyleStore>();
         builder.Services.AddSingleton<FreezeOverlaySpike>();
         builder.Services.AddSingleton<SkiaCanvasSpike>();
         builder.Services.AddSingleton<RecordingSpikeRunner>();

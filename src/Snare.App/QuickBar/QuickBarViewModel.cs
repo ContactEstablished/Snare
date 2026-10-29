@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
+using Snare.App.Editor;
 using Snare.App.Library;
 using Snare.App.Messages;
 using Snare.App.Services;
@@ -10,12 +11,13 @@ using Snare.Core.Captures;
 
 namespace Snare.App.QuickBar;
 
-/// <summary>The small bar shown after a capture. Phase 2 adds Edit; Phase 3 adds the tag box.</summary>
+/// <summary>The small bar shown after a capture. Phase 3 adds the tag box.</summary>
 public sealed partial class QuickBarViewModel(
     CaptureRecord capture,
     ClipboardService clipboard,
     ICaptureStore store,
     LibraryWindowService library,
+    EditorService editor,
     ILogger logger) : ObservableObject
 {
     public CaptureRecord Capture { get; } = capture;
@@ -24,6 +26,13 @@ public sealed partial class QuickBarViewModel(
 
     /// <summary>Raised when the bar should close.</summary>
     public event EventHandler? CloseRequested;
+
+    [RelayCommand]
+    private async Task EditAsync()
+    {
+        Close();
+        await editor.OpenAsync(Capture.Id);
+    }
 
     [RelayCommand]
     private async Task CopyAsync()

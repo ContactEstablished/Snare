@@ -13,4 +13,6 @@ public sealed class SnareOptions
     public int JpegQuality { get; set; } = 90;
 
     public bool IncludeCursor { get; set; }
+
+    public AfterCaptureAction AfterCapture { get; set; } = AfterCaptureAction.QuickBar;
 }
