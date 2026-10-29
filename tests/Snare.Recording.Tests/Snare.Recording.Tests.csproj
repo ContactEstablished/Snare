@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(SnareWindowsTargetFramework)</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Snare.Recording\Snare.Recording.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The recorder smoke test calls ScreenRecorderLib directly; its build targets are not transitive. -->
+    <PackageReference Include="ScreenRecorderLib" />
+  </ItemGroup>
+
+</Project>

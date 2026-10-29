@@ -10,6 +10,7 @@ public sealed class ShellService(
     HotkeyService hotkeys,
     FreezeOverlaySpike freezeOverlay,
     SkiaCanvasSpike skiaCanvas,
+    RecordingSpikeRunner recordingSpike,
     ILogger<ShellService> logger)
 {
     public void Start()
@@ -17,6 +18,7 @@ public sealed class ShellService(
         tray.Show();
         tray.AddSpike("Freeze overlay", freezeOverlay.Run);
         tray.AddSpike("Skia canvas (5120×2880 pattern)", skiaCanvas.RunWithTestPattern);
+        tray.AddSpike("Record 20 s test (mic, system audio, webcam)", recordingSpike.Run);
         freezeOverlay.CanvasRequested += (_, desktop) => skiaCanvas.RunWithDesktop(desktop);
 
         hotkeys.Pressed += OnHotkeyPressed;
