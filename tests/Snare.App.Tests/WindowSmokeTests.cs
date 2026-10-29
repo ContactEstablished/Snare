@@ -39,7 +39,7 @@ public class WindowSmokeTests
         Sta.Run(() =>
         {
             var store = new FakeCaptureStore();
-            var viewModel = new LibraryViewModel(store, new ClipboardService(NullLogger<ClipboardService>.Instance), Editors(store), NullLogger<LibraryViewModel>.Instance);
+            var viewModel = new LibraryViewModel(store, store, new ClipboardService(NullLogger<ClipboardService>.Instance), Editors(store), NullLogger<LibraryViewModel>.Instance);
 
             var window = new LibraryWindow(viewModel);
 
@@ -55,7 +55,7 @@ public class WindowSmokeTests
         {
             var store = new FakeCaptureStore();
             store.Captures.AddRange([FakeCaptureStore.Record(1), FakeCaptureStore.Record(2)]);
-            var viewModel = new LibraryViewModel(store, new ClipboardService(NullLogger<ClipboardService>.Instance), Editors(store), NullLogger<LibraryViewModel>.Instance);
+            var viewModel = new LibraryViewModel(store, store, new ClipboardService(NullLogger<ClipboardService>.Instance), Editors(store), NullLogger<LibraryViewModel>.Instance);
 
             viewModel.LoadAsync().GetAwaiter().GetResult();
             Assert.Equal([2, 1], viewModel.Tiles.Select(t => t.Capture.CreatedUtc.Minute));
@@ -81,6 +81,7 @@ public class WindowSmokeTests
             var viewModel = new QuickBarViewModel(
                 FakeCaptureStore.Record(1),
                 new ClipboardService(NullLogger<ClipboardService>.Instance),
+                new FakeCaptureStore(),
                 new FakeCaptureStore(),
                 new LibraryWindowService(services),
                 Editors(new FakeCaptureStore()),

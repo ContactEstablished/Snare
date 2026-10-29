@@ -8,21 +8,50 @@ using Snare.App.Library;
 using Snare.App.Messages;
 using Snare.App.Services;
 using Snare.Core.Captures;
+using Snare.Core.Search;
 
 namespace Snare.App.QuickBar;
 
-/// <summary>The small bar shown after a capture. Phase 3 adds the tag box.</summary>
+/// <summary>The small bar shown after a capture: Edit, Copy, Show in folder, Library, Delete, and a tag box.</summary>
 public sealed partial class QuickBarViewModel(
     CaptureRecord capture,
     ClipboardService clipboard,
     ICaptureStore store,
+    ICaptureCatalog catalog,
     LibraryWindowService library,
     EditorService editor,
     ILogger logger) : ObservableObject
 {
     public CaptureRecord Capture { get; } = capture;
 
-    public string Summary => string.Create(CultureInfo.InvariantCulture, $"{Capture.Width} × {Capture.Height} · copied");
+    [ObservableProperty]
+    public partial string Summary { get; set; } = string.Create(CultureInfo.InvariantCulture, $"{capture.Width} × {capture.Height} · copied");
+
+    [ObservableProperty]
+    public partial string TagText { get; set; } = "";
+
+    /// <summary>Enter in the tag box: adds the tags (comma-separated) and keeps the bar open.</summary>
+    [RelayCommand]
+    private async Task AddTagsAsync()
+    {
+        var names = CaptureDetailViewModel.SplitTags(TagText);
+        if (names.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await catalog.AddTagsAsync([Capture.Id], names);
+            TagText = "";
+            Summary = $"Tagged {string.Join(", ", names)}";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not tag capture {Id}", Capture.Id);
+            Summary = "Could not add tags";
+        }
+    }
 
     /// <summary>Raised when the bar should close.</summary>
     public event EventHandler? CloseRequested;

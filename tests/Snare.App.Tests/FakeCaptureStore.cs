@@ -2,10 +2,11 @@ using System.IO;
 using Snare.Core.Annotations;
 using Snare.Core.Captures;
 using Snare.Core.Imaging;
+using Snare.Core.Search;
 
 namespace Snare.App.Tests;
 
-internal sealed class FakeCaptureStore : ICaptureStore
+internal sealed class FakeCaptureStore : ICaptureStore, ICaptureCatalog
 {
     public List<CaptureRecord> Captures { get; } = [];
 
@@ -68,4 +69,73 @@ internal sealed class FakeCaptureStore : ICaptureStore
 
     public Task<CaptureRecord> DiscardOriginalAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
         Task.FromResult(Captures.First(c => c.Id == id) with { OriginalPath = null });
+
+    // ---- ICaptureCatalog, in memory ----
+
+    public Dictionary<Guid, List<string>> TagsById { get; } = [];
+
+    public event EventHandler<Guid>? ImageChanged;
+
+    public Task<IReadOnlyList<CaptureRecord>> SearchAsync(SearchQuery query, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<CaptureRecord>>(Captures
+            .Where(c => !Trashed.Contains(c.Id))
+            .Where(c => query.Terms.All(t => (c.Title ?? "").Contains(t, StringComparison.OrdinalIgnoreCase)))
+            .Where(c => query.Tags.All(t => TagsById.GetValueOrDefault(c.Id)?.Contains(t, StringComparer.OrdinalIgnoreCase) == true))
+            .OrderByDescending(c => c.CreatedUtc)
+            .ToList());
+
+    public Task<CaptureRecord> UpdateDetailsAsync(Guid id, string? title, string? description, CancellationToken cancellationToken = default)
+    {
+        var index = Captures.FindIndex(c => c.Id == id);
+        Captures[index] = Captures[index] with { Title = title, Description = description };
+        return Task.FromResult(Captures[index]);
+    }
+
+    public Task<IReadOnlyList<string>> GetTagsAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<string>>(TagsById.GetValueOrDefault(id) ?? []);
+
+    public Task SetTagsAsync(Guid id, IEnumerable<string> names, CancellationToken cancellationToken = default)
+    {
+        TagsById[id] = names.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return Task.CompletedTask;
+    }
+
+    public Task AddTagsAsync(IEnumerable<Guid> ids, IEnumerable<string> names, CancellationToken cancellationToken = default)
+    {
+        foreach (var id in ids)
+        {
+            TagsById[id] = (TagsById.GetValueOrDefault(id) ?? []).Concat(names).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<TagInfo>> ListTagsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<TagInfo>>(TagsById.Values.SelectMany(t => t).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select((name, i) => new TagInfo(name, TagPalette.ForIndex(i), 1)).ToList());
+
+    public Task SetTagColorAsync(string name, string color, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task SetOcrTextAsync(Guid id, string text, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<IReadOnlyList<Guid>> ListAwaitingOcrAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Guid>>([]);
+
+    public Task<IReadOnlyList<CaptureRecord>> ListTrashAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<CaptureRecord>>(Captures.Where(c => Trashed.Contains(c.Id)).ToList());
+
+    public Task RestoreAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        Trashed.Remove(id);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> EmptyTrashAsync(CancellationToken cancellationToken = default)
+    {
+        var count = Captures.RemoveAll(c => Trashed.Contains(c.Id));
+        Trashed.Clear();
+        return Task.FromResult(count);
+    }
+
+    public void RaiseImageChanged(Guid id) => ImageChanged?.Invoke(this, id);
 }

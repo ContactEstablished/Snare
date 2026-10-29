@@ -8,21 +8,160 @@
         d:DataContext="{d:DesignInstance local:LibraryViewModel}"
         x:ClassModifier="internal"
         Title="Snare Library"
-        Width="1400" Height="900"
+        Width="1500" Height="900"
         WindowStartupLocation="CenterScreen"
         Background="#FF1B1B1B"
         Foreground="White"
         FontFamily="Segoe UI">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="Visible" />
+        <Style x:Key="Field" TargetType="TextBox">
+            <Setter Property="Background" Value="#FF2A2A2A" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="CaretBrush" Value="White" />
+            <Setter Property="BorderBrush" Value="#FF3A3A3A" />
+            <Setter Property="Padding" Value="6,4" />
+        </Style>
+        <Style x:Key="Heading" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#99FFFFFF" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,14,0,4" />
+        </Style>
+        <Style x:Key="Action" TargetType="Button">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#FF2E2E2E" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#FF3A3A3A" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Window.InputBindings>
         <KeyBinding Key="F5" Command="{Binding LoadCommand}" />
+        <KeyBinding Key="F" Modifiers="Control" Command="{x:Static local:LibraryWindow.FocusSearch}" />
     </Window.InputBindings>
 
     <DockPanel>
-        <Border DockPanel.Dock="Top" Padding="20,14" Background="#FF222222">
+        <!-- Header: search, summary, Trash -->
+        <Border DockPanel.Dock="Top" Padding="20,12" Background="#FF222222">
             <DockPanel>
-                <TextBlock Text="Library" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Summary}" Foreground="#99FFFFFF" Margin="14,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Text="Library" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,20,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Summary}" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="14,0" />
+                    <ToggleButton Content="Trash" IsChecked="{Binding ShowTrash}" Padding="12,6" Margin="0,0,6,0" />
+                    <Button Content="Empty Trash…" Command="{Binding EmptyTrashCommand}" Style="{StaticResource Action}"
+                            Visibility="{Binding ShowTrash, Converter={StaticResource Visible}}" />
+                </StackPanel>
+                <Grid>
+                    <TextBox x:Name="SearchBox" Style="{StaticResource Field}" FontSize="14" Padding="10,6"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="{x:Static local:LibraryViewModel.SearchHint}">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+                    <TextBlock Text="Search titles, tags, text in images…   tag:  app:  kind:  before:  after:" Foreground="#66FFFFFF"
+                               Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="14"
+                               Visibility="{Binding Text.IsEmpty, ElementName=SearchBox, Converter={StaticResource Visible}}" />
+                </Grid>
             </DockPanel>
+        </Border>
+
+        <!-- Detail pane -->
+        <Border DockPanel.Dock="Right" Width="360" Background="#FF202020" BorderBrush="#FF2C2C2C" BorderThickness="1,0,0,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="18">
+                    <!-- One capture -->
+                    <Border Visibility="{Binding HasSingleSelection, Converter={StaticResource Visible}}">
+                    <StackPanel DataContext="{Binding Detail}">
+                        <TextBlock Text="TITLE" Style="{StaticResource Heading}" Margin="0,0,0,4" />
+                        <TextBox Style="{StaticResource Field}" FontSize="15" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" x:Name="TitleBox">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding SaveDetailsCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <TextBlock Text="DESCRIPTION" Style="{StaticResource Heading}" />
+                        <TextBox Style="{StaticResource Field}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"
+                                 Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" x:Name="DescriptionBox" />
+
+                        <TextBlock Text="TAGS" Style="{StaticResource Heading}" />
+                        <ItemsControl ItemsSource="{Binding Tags}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:TagChipViewModel">
+                                    <Border Background="#FF2E2E2E" CornerRadius="12" Padding="6,3,4,3" Margin="0,0,6,6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Width="12" Height="12" Cursor="Hand" ToolTip="Change color" Margin="0,0,6,0"
+                                                    Command="{Binding DataContext.CycleColorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Ellipse Fill="{Binding Color}" />
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                            <Button Content="×" Foreground="#99FFFFFF" Background="Transparent" BorderThickness="0" Padding="5,0" Cursor="Hand"
+                                                    ToolTip="Remove tag"
+                                                    Command="{Binding DataContext.RemoveTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ComboBox IsEditable="True" IsTextSearchEnabled="True" ItemsSource="{Binding Suggestions}"
+                                  Text="{Binding NewTag, UpdateSourceTrigger=PropertyChanged}" ToolTip="Add tags; Enter or comma to add">
+                            <ComboBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding AddTagCommand}" />
+                            </ComboBox.InputBindings>
+                        </ComboBox>
+
+                        <TextBlock Text="SOURCE" Style="{StaticResource Heading}" />
+                        <TextBlock Text="{Binding Source}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Facts}" Foreground="#AAFFFFFF" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding FilePath}" Foreground="#77FFFFFF" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                        <Expander Header="Text in image" Foreground="White" Margin="0,14,0,0">
+                            <TextBox Text="{Binding OcrText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="300"
+                                     VerticalScrollBarVisibility="Auto" Style="{StaticResource Field}" Margin="0,6,0,0" />
+                        </Expander>
+                    </StackPanel>
+                    </Border>
+
+                    <!-- Several captures -->
+                    <StackPanel Visibility="{Binding HasMultipleSelection, Converter={StaticResource Visible}}">
+                        <TextBlock Text="{Binding SelectionText}" FontSize="16" Margin="0,0,0,12" />
+                        <TextBlock Text="ADD TAGS TO ALL" Style="{StaticResource Heading}" />
+                        <TextBox Style="{StaticResource Field}" Text="{Binding BulkTags, UpdateSourceTrigger=PropertyChanged}" ToolTip="Comma-separated; Enter to add">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding AddBulkTagsCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                            <Button Content="Add tags" Command="{Binding AddBulkTagsCommand}" Style="{StaticResource Action}" />
+                            <Button Content="Move all to Trash" Command="{Binding TrashCommand}" Style="{StaticResource Action}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="Select a capture to see its details." Foreground="#66FFFFFF" TextWrapping="Wrap"
+                               Visibility="{Binding Selected.Count, Converter={x:Static local:LibraryWindow.ZeroToVisible}}" />
+                </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <ListBox x:Name="Grid"
@@ -30,7 +169,7 @@
                  Background="Transparent"
                  BorderThickness="0"
                  Padding="12"
-                 SelectionMode="Single"
+                 SelectionMode="Extended"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.InputBindings>
                 <KeyBinding Key="Delete" Command="{Binding TrashCommand}" CommandParameter="{Binding SelectedItem, ElementName=Grid}" />
@@ -52,6 +191,10 @@
                               Command="{Binding PlacementTarget.DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                     <Separator />
+                    <MenuItem Header="Restore from Trash"
+                              Command="{Binding PlacementTarget.DataContext.RestoreCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              Visibility="{Binding PlacementTarget.DataContext.ShowTrash, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource Visible}}" />
                     <MenuItem Header="Move to Trash" InputGestureText="Del"
                               Command="{Binding PlacementTarget.DataContext.TrashCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
@@ -96,7 +239,7 @@
                         <Border Width="320" Height="240" Background="#FF141414">
                             <Image Source="{Binding Thumbnail}" Stretch="None" RenderOptions.BitmapScalingMode="HighQuality" />
                         </Border>
-                        <TextBlock Text="{Binding When}" Margin="2,8,2,0" FontSize="13" />
+                        <TextBlock Text="{Binding Caption}" Margin="2,8,2,0" FontSize="13" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Details}" Margin="2,2,2,0" FontSize="12" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </DataTemplate>

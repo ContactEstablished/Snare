@@ -30,12 +30,13 @@ internal sealed partial class QuickBarWindow : Window
         viewModel.CloseRequested += (_, _) => Close();
         _timer.Tick += (_, _) =>
         {
-            if (!IsMouseOver)
+            if (!IsMouseOver && !IsKeyboardFocusWithin)
             {
                 Close();
             }
         };
         MouseLeave += (_, _) => _timer.Start();
+        LostKeyboardFocus += (_, _) => _timer.Start();
 
         // Never part of a screenshot, even if a capture starts while it is still showing.
         SourceInitialized += (_, _) => CaptureExclusion.ExcludeFromCapture(new WindowInteropHelper(this).Handle);
