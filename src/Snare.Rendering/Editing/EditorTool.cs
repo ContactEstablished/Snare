@@ -15,6 +15,7 @@ public enum EditorTool
     Blur,
     Pixelate,
     Step,
+    Callout,
     Eyedropper,
     Crop,
 }

@@ -41,6 +41,9 @@ internal static class AnnotationPainter
             case StepAnnotation step:
                 PaintStep(canvas, step, stepNumber);
                 break;
+            case CalloutAnnotation callout:
+                PaintCallout(canvas, callout);
+                break;
         }
     }
 
@@ -225,6 +228,31 @@ internal static class AnnotationPainter
             canvas.DrawText(
                 layout.Lines[i], text.Position.X, text.Position.Y + layout.Ascent + (i * layout.LineHeight),
                 SKTextAlign.Left, layout.Font, paint);
+        }
+    }
+
+    private static void PaintCallout(SKCanvas canvas, CalloutAnnotation callout)
+    {
+        using var outline = CalloutShape.Outline(callout);
+        using (var fill = Fill(callout.Fill))
+        {
+            canvas.DrawPath(outline, fill);
+        }
+
+        if (callout.StrokeWidth > 0)
+        {
+            using var stroke = Stroke(callout.Color, callout.StrokeWidth);
+            canvas.DrawPath(outline, stroke);
+        }
+
+        if (callout.Text.Length > 0)
+        {
+            // Text that doesn't fit is cut at the padded edge rather than spilling out of the bubble.
+            var inset = callout.Padding / 2;
+            canvas.Save();
+            canvas.ClipRect(new SKRect(callout.Bounds.X + inset, callout.Bounds.Y + inset, callout.Bounds.Right - inset, callout.Bounds.Bottom - inset));
+            PaintText(canvas, CalloutShape.TextPart(callout));
+            canvas.Restore();
         }
     }
 

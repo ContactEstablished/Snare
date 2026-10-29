@@ -47,7 +47,7 @@ Snare becomes something Matt can live in: a Settings window (hotkeys, library fo
 ## Callout tool
 
 - `CalloutAnnotation`: a rounded text bubble (bounds, text, font size, text color, fill, stroke, stroke width), with a tail ending at a free point (`Tail`). The tail leaves the bubble from the side nearest the point.
-- The text wraps inside the bubble the same way as the Text tool.
+- The text is laid out like the Text tool's (lines separated by Enter), padded inside the bubble and clipped to it. Resizing the bubble doesn't reflow the text.
 - Shortcut `K`, with its own remembered style.
 - To draw one, drag the bubble, then type. The tail starts below and left of the bubble.
 - In Select, the bubble has resize handles plus a tail handle, which is dragged to point. Moving the bubble moves the tail with it.

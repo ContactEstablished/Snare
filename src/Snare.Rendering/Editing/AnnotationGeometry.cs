@@ -35,6 +35,11 @@ public static class AnnotationGeometry
                 return R(x.Bounds);
             case StepAnnotation s:
                 return new SKRect(s.Center.X - s.Radius, s.Center.Y - s.Radius, s.Center.X + s.Radius, s.Center.Y + s.Radius);
+            case CalloutAnnotation c:
+                var bubble = R(c.Bounds);
+                return Inflate(
+                    new SKRect(Math.Min(bubble.Left, c.Tail.X), Math.Min(bubble.Top, c.Tail.Y), Math.Max(bubble.Right, c.Tail.X), Math.Max(bubble.Bottom, c.Tail.Y)),
+                    c.StrokeWidth / 2);
             default:
                 return SKRect.Empty;
         }
@@ -54,6 +59,7 @@ public static class AnnotationGeometry
             HighlighterAnnotation h => DistanceToPolyline(p, h.Points) <= (h.Width / 2) + tolerance,
             TextAnnotation or RedactAnnotation => Inflate(Bounds(item), tolerance).Contains(p),
             StepAnnotation s => SKPoint.Distance(p, P(s.Center)) <= s.Radius + tolerance,
+            CalloutAnnotation c => Inflate(R(c.Bounds), (c.StrokeWidth / 2) + tolerance).Contains(p) || HitTail(c, p, tolerance),
             _ => false,
         };
     }
@@ -75,14 +81,16 @@ public static class AnnotationGeometry
             TextAnnotation t => t with { Position = Move(t.Position) },
             RedactAnnotation x => x with { Bounds = MoveRect(x.Bounds) },
             StepAnnotation s => s with { Center = Move(s.Center) },
+            CalloutAnnotation c => c with { Bounds = MoveRect(c.Bounds), Tail = Move(c.Tail) },
             _ => item,
         };
     }
 
-    /// <summary>Box-like objects (rectangle, ellipse, redact) can be resized with corner and edge handles.</summary>
+    /// <summary>Box-like objects (rectangle, ellipse, redact, callout) can be resized with corner and edge handles.</summary>
     public static PixelRect? BoxOf(AnnotationObject item) => item switch
     {
         RectangleAnnotation r => r.Bounds,
+        CalloutAnnotation c => c.Bounds,
         EllipseAnnotation e => e.Bounds,
         RedactAnnotation x => x.Bounds,
         _ => null,
@@ -91,6 +99,7 @@ public static class AnnotationGeometry
     public static AnnotationObject WithBox(AnnotationObject item, PixelRect box) => item switch
     {
         RectangleAnnotation r => r with { Bounds = box },
+        CalloutAnnotation c => c with { Bounds = box },
         EllipseAnnotation e => e with { Bounds = box },
         RedactAnnotation x => x with { Bounds = box },
         _ => item,
@@ -125,8 +134,10 @@ public static class AnnotationGeometry
         }
 
         float l = box.X, t = box.Y, r = box.Right, b = box.Bottom, cx = (l + r) / 2, cy = (t + b) / 2;
+        IReadOnlyList<(EditorHandle, SKPoint)> tail = item is CalloutAnnotation callout ? [(EditorHandle.Tail, P(callout.Tail))] : [];
         return
         [
+            .. tail,
             (EditorHandle.TopLeft, new SKPoint(l, t)), (EditorHandle.Top, new SKPoint(cx, t)),
             (EditorHandle.TopRight, new SKPoint(r, t)), (EditorHandle.Right, new SKPoint(r, cy)),
             (EditorHandle.BottomRight, new SKPoint(r, b)), (EditorHandle.Bottom, new SKPoint(cx, b)),
@@ -159,6 +170,29 @@ public static class AnnotationGeometry
         }
 
         return PixelRect.FromCorners(new PixelPoint(left, top), new PixelPoint(right, bottom));
+    }
+
+    /// <summary>On the tail: inside its triangle, or within reach of its two sides.</summary>
+    private static bool HitTail(CalloutAnnotation callout, SKPoint p, float tolerance)
+    {
+        if (CalloutShape.Tail(callout) is not { } tail)
+        {
+            return false;
+        }
+
+        var reach = (callout.StrokeWidth / 2) + tolerance;
+        return DistanceToSegment(p, tail.BaseA, tail.Tip) <= reach
+            || DistanceToSegment(p, tail.BaseB, tail.Tip) <= reach
+            || InTriangle(p, tail.BaseA, tail.BaseB, tail.Tip);
+    }
+
+    private static bool InTriangle(SKPoint p, SKPoint a, SKPoint b, SKPoint c)
+    {
+        static float Cross(SKPoint o, SKPoint u, SKPoint v) => ((u.X - o.X) * (v.Y - o.Y)) - ((u.Y - o.Y) * (v.X - o.X));
+        var d1 = Cross(p, a, b);
+        var d2 = Cross(p, b, c);
+        var d3 = Cross(p, c, a);
+        return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
     }
 
     public static float DistanceToSegment(SKPoint p, SKPoint a, SKPoint b)

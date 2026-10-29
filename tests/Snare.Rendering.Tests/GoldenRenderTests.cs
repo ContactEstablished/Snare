@@ -56,6 +56,14 @@ public class GoldenRenderTests
             """
         },
         {
+            "callout",
+            """
+            [{"type":"callout","id":"a","bounds":{"x":15,"y":15,"width":130,"height":50},"tail":{"x":40,"y":115},"text":"Click here","color":"#E53935","fontSize":18},
+             {"type":"callout","id":"b","bounds":{"x":165,"y":20,"width":120,"height":60},"tail":{"x":312,"y":56},"text":"Two lines\nof text","color":"#000000","fontSize":16,"fill":"#FFF59D","strokeWidth":2,"bold":true},
+             {"type":"callout","id":"c","bounds":{"x":60,"y":135,"width":170,"height":50},"tail":{"x":175,"y":95},"text":"Tail points up","color":"#FFFFFF","fontSize":18,"fill":"#263238"}]
+            """
+        },
+        {
             "redact-solid",
             """
             [{"type":"redact","id":"a","bounds":{"x":40,"y":30,"width":150,"height":40},"mode":"solid","fill":"#000000"}]

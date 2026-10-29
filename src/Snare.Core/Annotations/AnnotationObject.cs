@@ -13,4 +13,5 @@ namespace Snare.Core.Annotations;
 [JsonDerivedType(typeof(TextAnnotation), "text")]
 [JsonDerivedType(typeof(RedactAnnotation), "redact")]
 [JsonDerivedType(typeof(StepAnnotation), "step")]
+[JsonDerivedType(typeof(CalloutAnnotation), "callout")]
 public abstract record AnnotationObject(string Id);

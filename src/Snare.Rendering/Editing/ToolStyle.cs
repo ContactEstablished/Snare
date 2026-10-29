@@ -31,6 +31,7 @@ public sealed record ToolStyle(
         EditorTool.Text => new("#E53935", 0, FontSize: 24),
         EditorTool.Redact => new("#000000", 0),
         EditorTool.Step => new("#E53935", 18),
+        EditorTool.Callout => new("#E53935", 3, FillColor: "#FFFFFF", FontSize: 22),
         _ => new("#E53935", 4),
     };
 }

@@ -23,6 +23,7 @@ public sealed class EditorSession
     private Gesture _gesture = Gesture.None;
     private SKPoint _start;
     private EditorHandle _activeHandle;
+    private CalloutAnnotation? _pendingCallout; // drawn, waiting for its text
     private List<AnnotationObject> _dragOriginals = [];
     private List<PixelPoint> _strokePoints = [];
 
@@ -178,6 +179,9 @@ public sealed class EditorSession
                 var style = _styles[EditorTool.Step];
                 Execute(new AddObjectCommand(new StepAnnotation(NewId(), Round(p), style.Color, Math.Max(6, style.Width))));
                 return;
+            case EditorTool.Callout when TopmostAt(p) is CalloutAnnotation existing:
+                TextEditRequested?.Invoke(this, CalloutShape.TextPart(existing));
+                return;
             case EditorTool.Eyedropper:
                 PickColor(p);
                 return;
@@ -231,6 +235,7 @@ public sealed class EditorSession
 
     public void PointerUp(SKPoint p, bool shift = false)
     {
+        CalloutAnnotation? newCallout = null;
         switch (_gesture)
         {
             case Gesture.Moving or Gesture.Resizing:
@@ -249,6 +254,12 @@ public sealed class EditorSession
             case Gesture.Drawing:
                 if (BuildShape(_start, p, shift) is { } shape && IsBigEnough(shape))
                 {
+                    if (shape is CalloutAnnotation callout)
+                    {
+                        newCallout = callout; // added once its text is typed (CommitText)
+                        break;
+                    }
+
                     Execute(new AddObjectCommand(shape));
                     _selection.Clear();
                     _selection.Add(shape.Id);
@@ -266,17 +277,27 @@ public sealed class EditorSession
         }
 
         _gesture = Gesture.None;
-        Preview = null;
+        Preview = newCallout; // a new callout stays on screen while its text is typed
         Marquee = null;
         OnChanged();
+        if (newCallout is not null)
+        {
+            _pendingCallout = newCallout;
+            TextEditRequested?.Invoke(this, CalloutShape.TextPart(newCallout));
+        }
     }
 
     /// <summary>Double-click: with the Select tool, opens a text object for editing.</summary>
     public void DoubleClick(SKPoint p)
     {
-        if (TopmostAt(p) is TextAnnotation text)
+        switch (TopmostAt(p))
         {
-            TextEditRequested?.Invoke(this, text);
+            case TextAnnotation text:
+                TextEditRequested?.Invoke(this, text);
+                break;
+            case CalloutAnnotation callout:
+                TextEditRequested?.Invoke(this, CalloutShape.TextPart(callout));
+                break;
         }
     }
 
@@ -370,8 +391,22 @@ public sealed class EditorSession
         text ??= "";
         var existing = Document.Find(target.Id);
         var blank = string.IsNullOrWhiteSpace(text);
+        var pending = _pendingCallout is { } p && p.Id == target.Id ? p : null;
+        if (pending is not null)
+        {
+            _pendingCallout = null;
+            Preview = null;
+        }
 
-        if (existing is null)
+        if (existing is null && pending is not null)
+        {
+            if (!blank)
+            {
+                Execute(new AddObjectCommand(pending with { Text = text }));
+                Select(pending.Id);
+            }
+        }
+        else if (existing is null)
         {
             if (!blank)
             {
@@ -387,6 +422,10 @@ public sealed class EditorSession
         else if (existing is TextAnnotation old && old.Text != text)
         {
             Execute(new ReplaceObjectsCommand("Edit text", [(old, old with { Text = text })]));
+        }
+        else if (existing is CalloutAnnotation bubble && bubble.Text != text)
+        {
+            Execute(new ReplaceObjectsCommand("Edit text", [(bubble, bubble with { Text = text })]));
         }
 
         OnChanged();
@@ -563,7 +602,11 @@ public sealed class EditorSession
     {
         var original = _dragOriginals[0];
         AnnotationObject resized;
-        if (AnnotationGeometry.EndpointsOf(original) is { } ends)
+        if (_activeHandle == EditorHandle.Tail && original is CalloutAnnotation callout)
+        {
+            resized = callout with { Tail = p };
+        }
+        else if (AnnotationGeometry.EndpointsOf(original) is { } ends)
         {
             resized = _activeHandle == EditorHandle.Start
                 ? AnnotationGeometry.WithEndpoints(original, p, ends.To)
@@ -744,6 +787,9 @@ public sealed class EditorSession
             EditorTool.Redact => new RedactAnnotation(id, box, RedactMode.Solid, style.Color),
             EditorTool.Blur => new RedactAnnotation(id, box, RedactMode.Blur, Strength: style.Strength),
             EditorTool.Pixelate => new RedactAnnotation(id, box, RedactMode.Pixelate, Strength: style.Strength),
+            EditorTool.Callout => new CalloutAnnotation(
+                id, box, new PixelPoint(box.X + (box.Width / 4), box.Bottom + Math.Max(24, box.Height / 2)), "",
+                style.Color, style.FontSize, style.FillColor ?? "#FFFFFF", style.Width, style.Bold),
             _ => null,
         };
     }
@@ -782,6 +828,7 @@ public sealed class EditorSession
         RedactAnnotation { Mode: RedactMode.Pixelate } => EditorTool.Pixelate,
         RedactAnnotation => EditorTool.Redact,
         StepAnnotation => EditorTool.Step,
+        CalloutAnnotation => EditorTool.Callout,
         _ => EditorTool.Select,
     };
 
@@ -802,6 +849,7 @@ public sealed class EditorSession
             RedactAnnotation { Mode: RedactMode.Solid } x => baseStyle with { Color = x.Fill },
             RedactAnnotation x => baseStyle with { Strength = x.EffectiveStrength },
             StepAnnotation s => baseStyle with { Color = s.Fill, Width = s.Radius },
+            CalloutAnnotation c => baseStyle with { Color = c.Color, Width = c.StrokeWidth, FillColor = c.Fill, FontSize = c.FontSize, Bold = c.Bold },
             _ => baseStyle,
         };
     }
@@ -821,6 +869,7 @@ public sealed class EditorSession
         RedactAnnotation { Mode: RedactMode.Solid } x => x with { Fill = s.Color },
         RedactAnnotation x => x with { Strength = s.Strength },
         StepAnnotation st => st with { Fill = s.Color, Radius = Math.Max(6, s.Width) },
+        CalloutAnnotation c => c with { Color = s.Color, StrokeWidth = s.Width, Fill = s.FillColor ?? "#FFFFFF", FontSize = s.FontSize, Bold = s.Bold },
         _ => item,
     };
 

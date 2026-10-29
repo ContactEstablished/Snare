@@ -188,11 +188,13 @@ public sealed partial class EditorViewModel : ObservableObject, IDisposable
     public bool ShowsColor => StyleTool is not (EditorTool.Select or EditorTool.Blur or EditorTool.Pixelate or EditorTool.Crop or EditorTool.Eyedropper);
 
     public bool ShowsWidth => StyleTool is EditorTool.Arrow or EditorTool.Line or EditorTool.Rectangle or EditorTool.Ellipse
-        or EditorTool.Pen or EditorTool.Highlighter or EditorTool.Step;
+        or EditorTool.Pen or EditorTool.Highlighter or EditorTool.Step or EditorTool.Callout;
 
-    public bool ShowsFill => StyleTool is EditorTool.Rectangle or EditorTool.Ellipse;
+    public bool ShowsFill => StyleTool is EditorTool.Rectangle or EditorTool.Ellipse or EditorTool.Callout;
 
-    public bool ShowsText => StyleTool is EditorTool.Text;
+    public bool ShowsText => StyleTool is EditorTool.Text or EditorTool.Callout;
+
+    public bool ShowsTextBackground => StyleTool is EditorTool.Text;
 
     public bool ShowsStrength => StyleTool is EditorTool.Blur or EditorTool.Pixelate;
 
