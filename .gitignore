@@ -24,3 +24,6 @@ tools/ffmpeg/*
 
 # Golden-image test output
 *.received.png
+
+# Phase worktrees
+.worktrees/
