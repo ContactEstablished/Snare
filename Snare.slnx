@@ -1,18 +1,49 @@
 <Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
   <Folder Name="/src/">
-    <Project Path="src/Snare.App/Snare.App.csproj" />
-    <Project Path="src/Snare.Capture/Snare.Capture.csproj" />
-    <Project Path="src/Snare.Core/Snare.Core.csproj" />
-    <Project Path="src/Snare.Interop/Snare.Interop.csproj" />
-    <Project Path="src/Snare.Library/Snare.Library.csproj" />
-    <Project Path="src/Snare.Recording/Snare.Recording.csproj" />
-    <Project Path="src/Snare.Rendering/Snare.Rendering.csproj" />
+    <Project Path="src/Snare.App/Snare.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Snare.Capture/Snare.Capture.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Snare.Core/Snare.Core.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Snare.Interop/Snare.Interop.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Snare.Library/Snare.Library.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Snare.Recording/Snare.Recording.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Snare.Rendering/Snare.Rendering.csproj">
+      <Platform Project="x64" />
+    </Project>
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Snare.Capture.Tests/Snare.Capture.Tests.csproj" />
-    <Project Path="tests/Snare.Core.Tests/Snare.Core.Tests.csproj" />
-    <Project Path="tests/Snare.Library.Tests/Snare.Library.Tests.csproj" />
-    <Project Path="tests/Snare.Rendering.Tests/Snare.Rendering.Tests.csproj" />
+    <Project Path="tests/Snare.Capture.Tests/Snare.Capture.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="tests/Snare.Interop.Tests/Snare.Interop.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="tests/Snare.Core.Tests/Snare.Core.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="tests/Snare.Library.Tests/Snare.Library.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="tests/Snare.Recording.Tests/Snare.Recording.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="tests/Snare.Rendering.Tests/Snare.Rendering.Tests.csproj">
+      <Platform Project="x64" />
+    </Project>
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />

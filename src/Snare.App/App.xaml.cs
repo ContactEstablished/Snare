@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using Snare.App.Infrastructure;
 using Snare.App.Services;
+using Snare.App.Spikes;
 using Snare.Capture;
 using Snare.Core.Options;
 using Snare.Library;
@@ -42,11 +43,16 @@ public partial class App : Application
             .AddSnareRecording()
             .AddSnareLibrary();
         builder.Services.AddSingleton<TrayIconService>();
+        builder.Services.AddSingleton<HotkeyService>();
+        builder.Services.AddSingleton<ShellService>();
+        builder.Services.AddSingleton<FreezeOverlaySpike>();
+        builder.Services.AddSingleton<SkiaCanvasSpike>();
+        builder.Services.AddSingleton<RecordingSpikeRunner>();
 
         _host = builder.Build();
         _host.Start();
 
-        _host.Services.GetRequiredService<TrayIconService>().Show();
+        _host.Services.GetRequiredService<ShellService>().Start();
         Log.Information("Snare started");
     }
 

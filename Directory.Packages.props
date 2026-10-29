@@ -9,6 +9,7 @@
     <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.4.1" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>
@@ -29,9 +30,13 @@
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
   </ItemGroup>
 
+  <ItemGroup Label="Video">
+    <!-- Native C++/CLI; the solution builds x64 only because of it (see Directory.Build.props). -->
+    <PackageVersion Include="ScreenRecorderLib" Version="7.0.1" />
+  </ItemGroup>
+
   <!--
     Added later, by the phase that needs them:
-      ScreenRecorderLib  (Phase 0 video spike; needs an x64 platform target)
       OpenCvSharp4 + OpenCvSharp4.runtime.win  (Phase 5 scrolling capture)
   -->
 

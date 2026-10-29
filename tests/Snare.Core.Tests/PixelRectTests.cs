@@ -38,4 +38,20 @@ public class PixelRectTests
         Assert.True(rect.Contains(new PixelPoint(9, 9)));
         Assert.False(rect.Contains(new PixelPoint(10, 5)));
     }
+
+    [Fact]
+    public void Union_CoversMattsStackedMonitors()
+    {
+        var primary = new PixelRect(0, 0, 5120, 1440);
+        var upper = new PixelRect(856, -1440, 3440, 1440);
+
+        Assert.Equal(new PixelRect(0, -1440, 5120, 2880), PixelRect.Union([primary, upper]));
+    }
+
+    [Fact]
+    public void Union_IgnoresEmptyRectsAndIsEmptyForNone()
+    {
+        Assert.Equal(new PixelRect(1, 2, 3, 4), PixelRect.Union([new PixelRect(1, 2, 3, 4), default]));
+        Assert.True(PixelRect.Union([]).IsEmpty);
+    }
 }

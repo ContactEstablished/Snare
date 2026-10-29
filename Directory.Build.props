@@ -6,6 +6,15 @@
     <SnareWindowsTargetFramework>net10.0-windows10.0.22621.0</SnareWindowsTargetFramework>
   </PropertyGroup>
 
+  <!--
+    x64 only: ScreenRecorderLib is a native C++/CLI library with no AnyCPU build, and Snare runs on
+    one x64 PC. Building a single project without a solution also defaults to x64.
+  -->
+  <PropertyGroup>
+    <Platforms>x64</Platforms>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU' or '$(Platform)' == 'Any CPU'">x64</Platform>
+  </PropertyGroup>
+
   <PropertyGroup>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>

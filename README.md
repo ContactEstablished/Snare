@@ -8,6 +8,7 @@ A personal Snagit-style screen capture app for Windows. Region, window and scrol
 
 - Windows 11
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [Visual C++ x64 runtime](https://aka.ms/vs/17/release/vc_redist.x64.exe), needed by ScreenRecorderLib for video
 - Visual Studio 2026, Rider, or VS Code with C# Dev Kit
 
 ## Build and run
@@ -19,6 +20,8 @@ dotnet run --project src/Snare.App
 ```
 
 Snare starts in the system tray. Logs are written to `%LOCALAPPDATA%\Snare\logs`.
+
+The solution builds for x64 only, because ScreenRecorderLib is a native library. The exe is in `src\Snare.App\bin\x64\Debug\net10.0-windows10.0.22621.0\`.
 
 ## Projects
 

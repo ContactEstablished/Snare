@@ -29,6 +29,23 @@ public readonly record struct PixelRect(int X, int Y, int Width, int Height)
             : new PixelRect(left, top, right - left, bottom - top);
     }
 
+    /// <summary>The smallest rectangle containing every non-empty input rectangle.</summary>
+    public static PixelRect Union(IEnumerable<PixelRect> rects)
+    {
+        ArgumentNullException.ThrowIfNull(rects);
+
+        int left = int.MaxValue, top = int.MaxValue, right = int.MinValue, bottom = int.MinValue;
+        foreach (var r in rects.Where(r => !r.IsEmpty))
+        {
+            left = Math.Min(left, r.X);
+            top = Math.Min(top, r.Y);
+            right = Math.Max(right, r.Right);
+            bottom = Math.Max(bottom, r.Bottom);
+        }
+
+        return left == int.MaxValue ? default : new PixelRect(left, top, right - left, bottom - top);
+    }
+
     public bool Contains(PixelPoint point) =>
         point.X >= X && point.X < Right && point.Y >= Y && point.Y < Bottom;
 }

@@ -8,6 +8,7 @@ public static class RecordingServiceCollectionExtensions
     public static IServiceCollection AddSnareRecording(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        services.AddSingleton<RecordingSpike>();
         return services;
     }
 }
