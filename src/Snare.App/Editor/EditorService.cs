@@ -34,6 +34,17 @@ public sealed class EditorService(
         try
         {
             var record = await store.GetAsync(captureId) ?? throw new KeyNotFoundException($"Capture {captureId} is not in the library.");
+            // One entry point for "open this capture": recordings go to the player.
+            if (record.Kind == CaptureKind.Video)
+            {
+                if (services.GetService(typeof(Snare.App.Video.VideoPlayerService)) is Snare.App.Video.VideoPlayerService player)
+                {
+                    player.Open(record);
+                }
+
+                return;
+            }
+
             if (record.OriginalPath is null)
             {
                 tray.Notify("Can't edit this capture", "Its original was discarded to make the redaction permanent.");

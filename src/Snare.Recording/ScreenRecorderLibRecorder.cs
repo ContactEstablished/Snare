@@ -41,7 +41,8 @@ public sealed class ScreenRecorderLibRecorder(ILogger<ScreenRecorderLibRecorder>
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var plan = RecordingOptionsFactory.Create(target, settings, Path.ChangeExtension(path, ".recorder.log"));
+        // The recorder log goes to %TEMP%, never into the library folder.
+        var plan = RecordingOptionsFactory.Create(target, settings, System.IO.Path.Combine(System.IO.Path.GetTempPath(), "snare-recorder.log"));
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var completed = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -154,7 +155,6 @@ public sealed class ScreenRecorderLibRecorder(ILogger<ScreenRecorderLibRecorder>
         if (path is not null)
         {
             TryDelete(path);
-            TryDelete(Path.ChangeExtension(path, ".recorder.log"));
         }
     }
 

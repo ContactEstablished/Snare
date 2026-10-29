@@ -237,7 +237,13 @@
                                           CommandParameter="{Binding}" />
                         </StackPanel.InputBindings>
                         <Border Width="320" Height="240" Background="#FF141414">
-                            <Image Source="{Binding Thumbnail}" Stretch="None" RenderOptions.BitmapScalingMode="HighQuality" />
+                            <Grid>
+                                <Image Source="{Binding Thumbnail}" Stretch="None" RenderOptions.BitmapScalingMode="HighQuality" />
+                                <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" Padding="6,2" CornerRadius="3"
+                                        Background="#CC000000" Visibility="{Binding IsVideo, Converter={StaticResource Visible}}">
+                                    <TextBlock Text="{Binding Badge}" FontSize="12" />
+                                </Border>
+                            </Grid>
                         </Border>
                         <TextBlock Text="{Binding Caption}" Margin="2,8,2,0" FontSize="13" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Details}" Margin="2,2,2,0" FontSize="12" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis" />

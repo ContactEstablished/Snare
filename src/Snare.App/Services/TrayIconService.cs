@@ -35,6 +35,7 @@ public sealed class TrayIconService(ILogger<TrayIconService> logger) : IDisposab
 
         menu.Items.Add(delayed);
         menu.Items.Add(Item("Grab text", actions.GrabText, "Ctrl+Alt+PrtSc"));
+        menu.Items.Add(Item("Record video", actions.RecordVideo, "Shift+PrtSc"));
         menu.Items.Add(Item("Library", actions.OpenLibrary));
         menu.Items.Add(new Separator());
         _spikesMenu = new MenuItem { Header = "Spikes" };

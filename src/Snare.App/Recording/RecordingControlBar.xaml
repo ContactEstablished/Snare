@@ -1,0 +1,58 @@
+<Window x:Class="Snare.App.Recording.RecordingControlBar"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Snare.App.Recording"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance local:RecordingControlViewModel}"
+        x:ClassModifier="internal"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        SizeToContent="WidthAndHeight"
+        FontFamily="Segoe UI"
+        FontSize="13">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="Visible" />
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#33FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- Dragging the bar's background moves it. -->
+    <Border x:Name="Chrome" Background="#F01C1C1C" CornerRadius="8" Padding="8,4" BorderBrush="#66C62828" BorderThickness="1">
+        <StackPanel Orientation="Horizontal">
+            <Ellipse Width="10" Height="10" Fill="#FFE53935" VerticalAlignment="Center" Margin="6,0,8,0" />
+            <TextBlock Text="{Binding ElapsedText}" Foreground="White" FontFamily="Consolas" FontSize="15" VerticalAlignment="Center" MinWidth="52" />
+            <Button Content="{Binding PauseLabel}" Command="{Binding TogglePauseCommand}" />
+            <Button Content="{Binding MicLabel}" Command="{Binding ToggleMicCommand}" Visibility="{Binding HasMicrophone, Converter={StaticResource Visible}}" />
+            <Button Content="{Binding WebcamLabel}" Command="{Binding ToggleWebcamCommand}" Visibility="{Binding HasWebcam, Converter={StaticResource Visible}}" />
+            <Button Content="Restart" Command="{Binding RestartCommand}" ToolTip="Throw this take away and start again" />
+            <Button Content="Discard" Command="{Binding DiscardCommand}" ToolTip="Stop and delete the recording" />
+            <Button Content="■ Stop" Command="{Binding StopCommand}" Background="#FFC62828" ToolTip="Stop and save (Shift+PrtSc)" Margin="4,0,0,0" />
+        </StackPanel>
+    </Border>
+</Window>
