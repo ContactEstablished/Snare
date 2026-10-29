@@ -732,6 +732,47 @@ public sealed class EditorSession
         ? Distance(ends.From, ends.To) >= MinimumShapeSize * 2
         : AnnotationGeometry.BoxOf(shape) is { } box && box.Width >= MinimumShapeSize && box.Height >= MinimumShapeSize;
 
+    /// <summary>The tool that draws an object, so its style can be shown and edited.</summary>
+    public static EditorTool ToolOf(AnnotationObject item) => item switch
+    {
+        ArrowAnnotation => EditorTool.Arrow,
+        LineAnnotation => EditorTool.Line,
+        RectangleAnnotation => EditorTool.Rectangle,
+        EllipseAnnotation => EditorTool.Ellipse,
+        PenAnnotation => EditorTool.Pen,
+        HighlighterAnnotation => EditorTool.Highlighter,
+        TextAnnotation => EditorTool.Text,
+        RedactAnnotation { Mode: RedactMode.Blur } => EditorTool.Blur,
+        RedactAnnotation { Mode: RedactMode.Pixelate } => EditorTool.Pixelate,
+        RedactAnnotation => EditorTool.Redact,
+        StepAnnotation => EditorTool.Step,
+        _ => EditorTool.Select,
+    };
+
+    /// <summary>An object's current style, the inverse of restyling it.</summary>
+    public ToolStyle StyleOf(AnnotationObject item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        var baseStyle = _styles[ToolOf(item)];
+        return item switch
+        {
+            ArrowAnnotation a => baseStyle with { Color = a.Stroke, Width = a.StrokeWidth, HeadStyle = a.HeadStyle },
+            LineAnnotation l => baseStyle with { Color = l.Stroke, Width = l.StrokeWidth, Dashed = l.Dashed },
+            RectangleAnnotation r => baseStyle with { Color = r.Stroke, Width = r.StrokeWidth, FillColor = r.Fill },
+            EllipseAnnotation e => baseStyle with { Color = e.Stroke, Width = e.StrokeWidth, FillColor = e.Fill },
+            PenAnnotation p => baseStyle with { Color = p.Stroke, Width = p.StrokeWidth },
+            HighlighterAnnotation h => baseStyle with { Color = h.Color, Width = h.Width },
+            TextAnnotation t => baseStyle with { Color = t.Color, FontSize = t.FontSize, Bold = t.Bold, TextBackground = t.Background },
+            RedactAnnotation { Mode: RedactMode.Solid } x => baseStyle with { Color = x.Fill },
+            RedactAnnotation x => baseStyle with { Strength = x.EffectiveStrength },
+            StepAnnotation s => baseStyle with { Color = s.Fill, Width = s.Radius },
+            _ => baseStyle,
+        };
+    }
+
+    /// <summary>The selected objects, bottom to top.</summary>
+    public IReadOnlyList<AnnotationObject> SelectedItems => SelectedObjects().ToList();
+
     private static AnnotationObject Restyle(AnnotationObject item, ToolStyle s) => item switch
     {
         ArrowAnnotation a => a with { Stroke = s.Color, StrokeWidth = s.Width, HeadStyle = s.HeadStyle },
@@ -739,11 +780,11 @@ public sealed class EditorSession
         RectangleAnnotation r => r with { Stroke = s.Color, StrokeWidth = s.Width, Fill = s.FillColor },
         EllipseAnnotation e => e with { Stroke = s.Color, StrokeWidth = s.Width, Fill = s.FillColor },
         PenAnnotation p => p with { Stroke = s.Color, StrokeWidth = s.Width },
-        HighlighterAnnotation h => h with { Color = s.Color },
+        HighlighterAnnotation h => h with { Color = s.Color, Width = s.Width },
         TextAnnotation t => t with { Color = s.Color, FontSize = s.FontSize, Bold = s.Bold, Background = s.TextBackground },
         RedactAnnotation { Mode: RedactMode.Solid } x => x with { Fill = s.Color },
         RedactAnnotation x => x with { Strength = s.Strength },
-        StepAnnotation st => st with { Fill = s.Color },
+        StepAnnotation st => st with { Fill = s.Color, Radius = Math.Max(6, s.Width) },
         _ => item,
     };
 

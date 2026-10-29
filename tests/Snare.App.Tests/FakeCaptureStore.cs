@@ -45,8 +45,13 @@ internal sealed class FakeCaptureStore : ICaptureStore
     public Task SaveAnnotationsAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
 
-    public Task<CaptureRecord> ReexportAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Captures.First(c => c.Id == id));
+    public int ReexportCount { get; private set; }
+
+    public Task<CaptureRecord> ReexportAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default)
+    {
+        ReexportCount++;
+        return Task.FromResult(Captures.First(c => c.Id == id));
+    }
 
     public Task<CaptureRecord> DiscardOriginalAsync(Guid id, AnnotationDocument document, CancellationToken cancellationToken = default) =>
         Task.FromResult(Captures.First(c => c.Id == id) with { OriginalPath = null });
