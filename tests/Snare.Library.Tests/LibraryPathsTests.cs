@@ -25,6 +25,28 @@ public class LibraryPathsTests
     }
 
     [Fact]
+    public void UniqueExportPath_AddsTheNextFreeSuffix()
+    {
+        var taken = new HashSet<string>
+        {
+            Paths.ExportPathFor(CapturedAt, ExportFormat.Png),
+            Path.Combine(Paths.LibraryRoot, "2026", "10", "2026-10-25_182301_2.png"),
+        };
+
+        var path = Paths.UniqueExportPathFor(CapturedAt, ExportFormat.Png, taken.Contains);
+
+        Assert.Equal(Path.Combine(Paths.LibraryRoot, "2026", "10", "2026-10-25_182301_3.png"), path);
+    }
+
+    [Fact]
+    public void UniqueExportPath_IsThePlainNameWhenFree()
+    {
+        Assert.Equal(
+            Paths.ExportPathFor(CapturedAt, ExportFormat.Png),
+            Paths.UniqueExportPathFor(CapturedAt, ExportFormat.Png, _ => false));
+    }
+
+    [Fact]
     public void PrivateFiles_StayUnderAppData()
     {
         Assert.StartsWith(Paths.AppDataRoot, Paths.DatabasePath, StringComparison.Ordinal);
